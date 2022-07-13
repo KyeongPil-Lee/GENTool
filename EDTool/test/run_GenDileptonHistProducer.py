@@ -18,7 +18,7 @@ process.GlobalTag.globaltag = '106X_mcRun2_asymptotic_preVFP_v8'
 process.load("Configuration.StandardSequences.MagneticField_AutoFromDBCurrent_cff")
 process.load('Configuration.Geometry.GeometryRecoDB_cff')
 
-from GENTool.GenDileptonHistProducer import *
+from GENTool.EDTool.GenDileptonHistProducer import *
 
 process.genDileptonHistProducer = GenDileptonHistProducer.clone()
 # process.genDileptonHistProducer.genID_lepton    = cms.untracked.int(13)
