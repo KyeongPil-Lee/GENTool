@@ -40,6 +40,8 @@ process.load('Configuration.Geometry.GeometryRecoDB_cff')
 from GENTool.EDTool.GenDileptonHistProducer_cfi import *
 
 process.genDileptonHistProducer = GenDileptonHistProducer.clone()
+process.genDileptonHistProducer.GenParticles = cms.untracked.InputTag("prunedGenParticles") # -- miniAOD
+
 if options.leptonType == "muon":
     process.genDileptonHistProducer.genID_lepton = cms.untracked.int32(13)
 elif options.leptonType == "electron":
