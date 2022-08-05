@@ -1,0 +1,40 @@
+executable     = script_run.sh
+
+error   = condor_err_job$(Process).txt
+output  = condor_out_job$(Process).txt
+log     = script_run.log
+
+transfer_input_files = run_GenDileptonHistProducer_arg.py
+should_transfer_files = yes
+getenv = True
+
+arguments = DYMM_m10to50
+queue
+
+arguments = DYMM_m100to200
+queue
+
+arguments = DYMM_m200to400
+queue
+
+arguments = DYMM_m400to500
+queue
+
+arguments = DYMM_m500to700
+queue
+
+arguments = DYMM_m700to800
+queue
+
+arguments = DYMM_m800to1000
+queue
+
+arguments = DYMM_m1000to1500
+queue
+
+arguments = DYMM_m1500to2000
+queue
+
+arguments = DYMM_m2000to3000
+queue
+

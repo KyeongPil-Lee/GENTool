@@ -1,5 +1,22 @@
 import FWCore.ParameterSet.Config as cms
 
+from FWCore.ParameterSet.VarParsing import VarParsing
+options = VarParsing('analysis')
+
+options.register('globalTag',
+                  "106X_mcRun2_asymptotic_v13", # default value
+                  VarParsing.multiplicity.singleton, # singleton or list
+                  VarParsing.varType.string,         # string, int, or float
+                  "global tag")
+
+options.register('leptonType',
+                  "none", # default value
+                  VarParsing.multiplicity.singleton, # singleton or list
+                  VarParsing.varType.string,         # string, int, or float
+                  "lepton type (electron or muon)")
+
+options.parseArguments()
+
 process = cms.Process("GENTool")
 
 process.load('FWCore.MessageLogger.MessageLogger_cfi')
@@ -10,17 +27,12 @@ process.source = cms.Source("PoolSource",
     secondaryFileNames = cms.untracked.vstring(),
 )
 
-basePath = "/user/kplee/SE/DY_MiNNLO_GEN_v1/CRAB_PrivateMC/crab_DYMuMu_M50_MiNNLO_GEN/220715_155814/0000"
-process.source.fileNames = cms.untracked.vstring()
-for i in range(1, 101):
-    filePath = "file:%s/SMP-RunIISummer20UL16wmLHEGEN-00496_%d.root" % (basePath, i);
-    process.source.fileNames.append( filePath )
-
 process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(-1))
 
 process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_condDBv2_cff")
 # process.GlobalTag.globaltag = '106X_mcRun2_asymptotic_v13'
-process.GlobalTag.globaltag = '106X_mcRun2_asymptotic_preVFP_v11'
+# process.GlobalTag.globaltag = '106X_mcRun2_asymptotic_preVFP_v11'
+process.GlobalTag.globaltag = options.globalTag
 
 process.load("Configuration.StandardSequences.MagneticField_AutoFromDBCurrent_cff")
 process.load('Configuration.Geometry.GeometryRecoDB_cff')
@@ -28,7 +40,11 @@ process.load('Configuration.Geometry.GeometryRecoDB_cff')
 from GENTool.EDTool.GenDileptonHistProducer_cfi import *
 
 process.genDileptonHistProducer = GenDileptonHistProducer.clone()
-# process.genDileptonHistProducer.genID_lepton    = cms.untracked.int32(13)
+if options.leptonType == "muon":
+    process.genDileptonHistProducer.genID_lepton = cms.untracked.int32(13)
+elif options.leptonType == "electron":
+    process.genDileptonHistProducer.genID_lepton = cms.untracked.int32(11)
+
 # process.genDileptonHistProducer.genFlag_lepton  = cms.untracked.string("isHardProcess") # -- isHardProcess or fromHardProcessFinalState
 
 process.mypath = cms.EndPath(process.genDileptonHistProducer)
