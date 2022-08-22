@@ -6,13 +6,14 @@ process.load('FWCore.MessageLogger.MessageLogger_cfi')
 process.MessageLogger.cerr.FwkReport.reportEvery = 1000
 
 process.source = cms.Source("PoolSource",
-    fileNames = cms.untracked.vstring('file:/afs/cern.ch/user/k/kplee/work/private/Analysis/gridpack_MiNNLO/CMSSW_10_6_18/src/SMP-RunIISummer20UL16wmLHEGENAPV-00001.root'),
+    fileNames = cms.untracked.vstring(''),
     secondaryFileNames = cms.untracked.vstring(),
 )
 
 basePath = "/user/kplee/SE/DY_MiNNLO_GEN_v1/CRAB_PrivateMC/crab_DYMuMu_M50_MiNNLO_GEN/220715_155814/0000"
 process.source.fileNames = cms.untracked.vstring()
-for i in range(1, 101):
+# for i in range(1, 101):
+for i in range(1, 2):
     filePath = "file:%s/SMP-RunIISummer20UL16wmLHEGEN-00496_%d.root" % (basePath, i);
     process.source.fileNames.append( filePath )
 

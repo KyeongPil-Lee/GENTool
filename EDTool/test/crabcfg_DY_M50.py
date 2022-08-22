@@ -17,7 +17,7 @@ config.Data.publication = False
 
 config.Site.storageSite = 'T2_BE_IIHE'
 
-version = 'v1'
+version = 'v2'
 config.Data.outLFNDirBase = '/store/user/kplee/GENPlot_DY_%s' % version
 
 # 'MultiCRAB' part
