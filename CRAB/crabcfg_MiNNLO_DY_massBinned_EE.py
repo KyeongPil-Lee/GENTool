@@ -44,10 +44,9 @@ if __name__ == '__main__':
         except ClientException as cle:
             print "Failed submitting task: %s" % (cle)
 
-    # list_massRange = ["m10to50", "m100to200", "m200to400", "m400to500", "m500to700", "m700to800", "m800to1000", "m1000to1500", "m1500to2000", "m2000to3000", "m2000toInf"]
-    list_massRange = ["m2000toInf"]
+    list_massRange = ["m10to50", "m100to200", "m200to400", "m400to500", "m500to700", "m700to800", "m800to1000", "m1000to1500", "m1500to2000", "m2000to3000", "m2000toInf"]
     # list_channelType = ["DYMM", "DYEE"]
-    list_channelType = ["DYMM"]
+    list_channelType = ["DYEE"]
 
     for massRange in list_massRange:
         for channelType in list_channelType:

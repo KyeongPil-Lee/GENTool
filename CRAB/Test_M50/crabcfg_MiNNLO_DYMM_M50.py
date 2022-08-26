@@ -11,18 +11,17 @@ config.JobType.numCores = 1
 config.Data.inputDataset = ''
 
 # config.Data.inputDBS = 'global'
-# config.Data.publication = False
+config.Data.publication = False
 
-# config.Data.splitting = 'Automatic' # -- it is not preferred: test job is frequently failed due to memory
 config.Data.totalUnits = 10000
-config.Data.splitting = 'EventBased'
+config.Data.splitting = 'EventBased' # -- PrivateMC: only EventBased splitting is allowed
 config.Data.unitsPerJob = 100
 
 config.Site.storageSite = 'T2_BE_IIHE'
 
 # config.JobType.allowUndistributedCMSSW = True
 
-config.JobType.psetName = '' # -- should be filled
+config.JobType.psetName = 'ProduceGEN_new_runcmsgrid.py' # -- should be filled
 
 version = "v1"
 config.General.workArea = 'CRABDir_%s' % version
@@ -35,6 +34,8 @@ if __name__ == '__main__':
     from CRABAPI.RawCommand import crabCommand
 
     config.General.requestName = 'DYMuMu_M50_MiNNLO_GEN'
-    config.JobType.inputFiles = "" # -- gridpack
+    # config.JobType.inputFiles = ["gridpack_another_runcmsgrid.tgz"] # -- gridpack
+    config.JobType.inputFiles = ["/afs/cern.ch/work/k/kplee/public/gridpack_MiNNLO/Test_M50/gridpack_another_runcmsgrid.tgz"] # -- gridpack
+
     crabCommand('submit', config = config)
 
