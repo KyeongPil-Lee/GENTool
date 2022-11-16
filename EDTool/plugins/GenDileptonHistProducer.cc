@@ -48,6 +48,8 @@ class GenDileptonHistProducer : public edm::EDAnalyzer {
     TH1D* h_LHE_diLep_mass_;
     TH1D* h_LHE_diLep_mass_signOnly_;
 
+    TH1D* h_LHE_pdgID_;
+
     int genID_lepton_;
     std::string genFlag_lepton_;
 };
@@ -74,14 +76,20 @@ t_genParticles_( consumes< std::vector<reco::GenParticle> > (iConfig.getUntracke
   h_gen_diLep_pt_   = fs->make<TH1D>("h_gen_diLep_pt",   "", 10000, 0, 10000);
   h_gen_diLep_rap_  = fs->make<TH1D>("h_gen_diLep_rap",  "", 2000, -10, 10);
 
-  h_LHE_weight_ = fs->make<TH1D>("h_LHE_weight",  "", 1, 0, 1);
+  h_LHE_weight_ = fs->make<TH1D>("h_LHE_weight",  "", 3, 0, 3);
   h_LHE_weight_->GetXaxis()->SetBinLabel(1, "sumWeight");
+  h_LHE_weight_->GetXaxis()->SetBinLabel(2, "sumWeight_pos");
+  h_LHE_weight_->GetXaxis()->SetBinLabel(3, "sumWeight_neg");
 
-  h_LHE_weight_signOnly_ = fs->make<TH1D>("h_LHE_weight_signOnly",  "", 1, 0, 1);
+  h_LHE_weight_signOnly_ = fs->make<TH1D>("h_LHE_weight_signOnly",  "", 3, 0, 3);
   h_LHE_weight_signOnly_->GetXaxis()->SetBinLabel(1, "sumWeight");
+  h_LHE_weight_signOnly_->GetXaxis()->SetBinLabel(2, "sumWeight_pos");
+  h_LHE_weight_signOnly_->GetXaxis()->SetBinLabel(3, "sumWeight_neg");
 
   h_LHE_diLep_mass_          = fs->make<TH1D>("h_LHE_diLep_mass", "", 10000, 0, 10000);
   h_LHE_diLep_mass_signOnly_ = fs->make<TH1D>("h_LHE_diLep_mass_signOnly", "", 10000, 0, 10000);
+
+  h_LHE_pdgID_ = fs->make<TH1D>("h_LHE_pdgID", "", 2000, -1000, 1000);
 
   genID_lepton_   = iConfig.getUntrackedParameter<int>("genID_lepton");  
   genFlag_lepton_ = iConfig.getUntrackedParameter<std::string>("genFlag_lepton");
@@ -168,6 +176,7 @@ void GenDileptonHistProducer::analyze(const edm::Event& iEvent, const edm::Event
   vector<TLorentzVector> vec_vecP_LHELep;
   for( size_t i_par = 0; i_par < lheParticles.size(); ++i_par ) {
     Int_t id = lheEvent.IDUP[i_par];
+    h_LHE_pdgID_->Fill( id+0.5, 1.0 ); // -- e.g. id == 0 -> saved in the bin 0 < bin < 1
 
     if( abs(id) != genID_lepton_ ) continue;
 
@@ -196,6 +205,9 @@ void GenDileptonHistProducer::analyze(const edm::Event& iEvent, const edm::Event
 
   double weight_LHE = h_LHEEvent->originalXWGTUP();
   h_LHE_weight_->Fill("sumWeight", weight_LHE);
+  if( weight_LHE > 0 ) h_LHE_weight_->Fill("sumWeight_pos", weight_LHE);
+  if( weight_LHE < 0 ) h_LHE_weight_->Fill("sumWeight_neg", weight_LHE);
+
   h_LHE_diLep_mass_->Fill( vecP_dilep_LHE.M(), weight_LHE );
 
   // -- only take the sign of the weight: to avoid a few events with too large weights which ruins the whole distribution
@@ -204,6 +216,8 @@ void GenDileptonHistProducer::analyze(const edm::Event& iEvent, const edm::Event
     weight_LHE_sign = weight_LHE > 0 ? weight_LHE = 1.0 : weight_LHE = -1.0;
 
   h_LHE_weight_signOnly_->Fill( "sumWeight", weight_LHE_sign );
+  if( weight_LHE_sign > 0 ) h_LHE_weight_signOnly_->Fill( "sumWeight_pos", weight_LHE_sign );
+  if( weight_LHE_sign < 0 ) h_LHE_weight_signOnly_->Fill( "sumWeight_neg", weight_LHE_sign );
   h_LHE_diLep_mass_signOnly_->Fill( vecP_dilep_LHE.M(), weight_LHE_sign );
 }
 
