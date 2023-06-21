@@ -27,6 +27,8 @@ class GenDileptonHistProducer : public edm::EDAnalyzer {
     edm::EDGetTokenT<GenEventInfoProduct>            t_genEventInfo_;
     edm::EDGetTokenT<std::vector<reco::GenParticle>> t_genParticles_;
 
+    TH1D* h_gen_weight_;
+
     TH1D* h_gen_lep_pt_;
     TH1D* h_gen_lep_eta_;
     TH1D* h_gen_lep_phi_;
@@ -43,10 +45,24 @@ class GenDileptonHistProducer : public edm::EDAnalyzer {
     TH1D* h_gen_diLep_pt_;
     TH1D* h_gen_diLep_rap_;
 
+    TH1D* h_LHE_weight_keepAbs_;
     TH1D* h_LHE_weight_;
-    TH1D* h_LHE_weight_signOnly_;
+    TH1D* h_LHE_diLep_mass_keepAbs_;
     TH1D* h_LHE_diLep_mass_;
-    TH1D* h_LHE_diLep_mass_signOnly_;
+    TH1D* h_LHE_diLep_pt_;
+    TH1D* h_LHE_diLep_rap_;
+
+    TH1D* h_LHE_lep_pt_;
+    TH1D* h_LHE_lep_eta_;
+    TH1D* h_LHE_lep_phi_;
+
+    TH1D* h_LHE_lep_lead_pt_;
+    TH1D* h_LHE_lep_lead_eta_;
+    TH1D* h_LHE_lep_lead_phi_;
+
+    TH1D* h_LHE_lep_sub_pt_;
+    TH1D* h_LHE_lep_sub_eta_;
+    TH1D* h_LHE_lep_sub_phi_;
 
     TH1D* h_LHE_pdgID_;
 
@@ -55,11 +71,18 @@ class GenDileptonHistProducer : public edm::EDAnalyzer {
 };
 
 GenDileptonHistProducer::GenDileptonHistProducer(const edm::ParameterSet& iConfig):
-t_LHEEvent_(     consumes< LHEEventProduct >                (iConfig.getUntrackedParameter<edm::InputTag>("LHEEvent")) ),
+t_LHEEvent_(   mayConsume< LHEEventProduct >                (iConfig.getUntrackedParameter<edm::InputTag>("LHEEvent")) ),
 t_genEventInfo_( consumes< GenEventInfoProduct >            (iConfig.getUntrackedParameter<edm::InputTag>("GenEventInfo")) ),
 t_genParticles_( consumes< std::vector<reco::GenParticle> > (iConfig.getUntrackedParameter<edm::InputTag>("GenParticles")))
 {
   edm::Service<TFileService> fs;
+
+  // -- GEN events
+  h_gen_weight_ = fs->make<TH1D>("h_gen_weight",  "", 3, 0, 3);
+  h_gen_weight_->GetXaxis()->SetBinLabel(1, "sumWeight");
+  h_gen_weight_->GetXaxis()->SetBinLabel(2, "sumWeight_pos");
+  h_gen_weight_->GetXaxis()->SetBinLabel(3, "sumWeight_neg");
+
   h_gen_lep_pt_  = fs->make<TH1D>("h_gen_lep_pt",  "", 10000, 0, 10000);
   h_gen_lep_eta_ = fs->make<TH1D>("h_gen_lep_eta", "", 2000, -10, 10);
   h_gen_lep_phi_ = fs->make<TH1D>("h_gen_lep_phi", "", 80, -4, 4);
@@ -76,18 +99,31 @@ t_genParticles_( consumes< std::vector<reco::GenParticle> > (iConfig.getUntracke
   h_gen_diLep_pt_   = fs->make<TH1D>("h_gen_diLep_pt",   "", 10000, 0, 10000);
   h_gen_diLep_rap_  = fs->make<TH1D>("h_gen_diLep_rap",  "", 2000, -10, 10);
 
+  // -- LHE events
+  h_LHE_weight_keepAbs_ = fs->make<TH1D>("h_LHE_weight_keepAbs",  "", 3, 0, 3);
+  h_LHE_weight_keepAbs_->GetXaxis()->SetBinLabel(1, "sumWeight");
+  h_LHE_weight_keepAbs_->GetXaxis()->SetBinLabel(2, "sumWeight_pos");
+  h_LHE_weight_keepAbs_->GetXaxis()->SetBinLabel(3, "sumWeight_neg");
+
   h_LHE_weight_ = fs->make<TH1D>("h_LHE_weight",  "", 3, 0, 3);
   h_LHE_weight_->GetXaxis()->SetBinLabel(1, "sumWeight");
   h_LHE_weight_->GetXaxis()->SetBinLabel(2, "sumWeight_pos");
   h_LHE_weight_->GetXaxis()->SetBinLabel(3, "sumWeight_neg");
 
-  h_LHE_weight_signOnly_ = fs->make<TH1D>("h_LHE_weight_signOnly",  "", 3, 0, 3);
-  h_LHE_weight_signOnly_->GetXaxis()->SetBinLabel(1, "sumWeight");
-  h_LHE_weight_signOnly_->GetXaxis()->SetBinLabel(2, "sumWeight_pos");
-  h_LHE_weight_signOnly_->GetXaxis()->SetBinLabel(3, "sumWeight_neg");
+  h_LHE_diLep_mass_keepAbs_ = fs->make<TH1D>("h_LHE_diLep_mass_keepAbs", "", 10000, 0, 10000);
+  h_LHE_diLep_mass_         = fs->make<TH1D>("h_LHE_diLep_mass", "", 10000, 0, 10000);
 
-  h_LHE_diLep_mass_          = fs->make<TH1D>("h_LHE_diLep_mass", "", 10000, 0, 10000);
-  h_LHE_diLep_mass_signOnly_ = fs->make<TH1D>("h_LHE_diLep_mass_signOnly", "", 10000, 0, 10000);
+  h_LHE_lep_pt_  = fs->make<TH1D>("h_LHE_lep_pt",  "", 10000, 0, 10000);
+  h_LHE_lep_eta_ = fs->make<TH1D>("h_LHE_lep_eta", "", 2000, -10, 10);
+  h_LHE_lep_phi_ = fs->make<TH1D>("h_LHE_lep_phi", "", 80, -4, 4);
+
+  h_LHE_lep_lead_pt_  = fs->make<TH1D>("h_LHE_lep_lead_pt",  "", 10000, 0, 10000);
+  h_LHE_lep_lead_eta_ = fs->make<TH1D>("h_LHE_lep_lead_eta", "", 2000, -10, 10);
+  h_LHE_lep_lead_phi_ = fs->make<TH1D>("h_LHE_lep_lead_phi", "", 80, -4, 4);
+
+  h_LHE_lep_sub_pt_  = fs->make<TH1D>("h_LHE_lep_sub_pt",  "", 10000, 0, 10000);
+  h_LHE_lep_sub_eta_ = fs->make<TH1D>("h_LHE_lep_sub_eta", "", 2000, -10, 10);
+  h_LHE_lep_sub_phi_ = fs->make<TH1D>("h_LHE_lep_sub_phi", "", 80, -4, 4);
 
   h_LHE_pdgID_ = fs->make<TH1D>("h_LHE_pdgID", "", 2000, -1000, 1000);
 
@@ -117,6 +153,7 @@ void GenDileptonHistProducer::analyze(const edm::Event& iEvent, const edm::Event
     bool genFlag = false;
     if( genFlag_lepton_ == "isHardProcess" )             genFlag = genLepton.isHardProcess();
     if( genFlag_lepton_ == "fromHardProcessFinalState" ) genFlag = genLepton.fromHardProcessFinalState();
+    if( genFlag_lepton_ == "" )                          genFlag = true; // take any particles
 
     if( !genFlag ) continue;
 
@@ -126,15 +163,16 @@ void GenDileptonHistProducer::analyze(const edm::Event& iEvent, const edm::Event
   }
 
   auto nLep = vec_vecP_lep.size();
-  if( nLep != 2 ) {
-    cout << "nLep = " << nLep << " is not equal to 2! ... do not fill the histograms" << endl;
+  // nLep != 0: can happen if the sample is 3-flavor sample
+  if( nLep != 0 && nLep != 2 ) {
+    cout << "nLep = " << nLep << " is not equal to 0 or 2! ... do not fill the histograms" << endl;
     return;
   }
+  if( nLep == 0 ) return;
 
   TLorentzVector vecP_lead;
   TLorentzVector vecP_sub;
   TLorentzVector vecP_diLep;
-
 
   if( vec_vecP_lep[0].Pt() > vec_vecP_lep[1].Pt() ) {
     vecP_lead = vec_vecP_lep[0];
@@ -144,6 +182,10 @@ void GenDileptonHistProducer::analyze(const edm::Event& iEvent, const edm::Event
     vecP_lead = vec_vecP_lep[1];
     vecP_sub  = vec_vecP_lep[0];
   }
+
+  h_gen_weight_->Fill("sumWeight", weight);
+  if( weight > 0 ) h_gen_weight_->Fill("sumWeight_pos", weight);
+  if( weight < 0 ) h_gen_weight_->Fill("sumWeight_neg", weight);
 
   h_gen_lep_pt_->Fill(vecP_lead.Pt(), weight);
   h_gen_lep_eta_->Fill(vecP_lead.Eta(), weight);
@@ -168,7 +210,8 @@ void GenDileptonHistProducer::analyze(const edm::Event& iEvent, const edm::Event
 
   // -- LHE events
   edm::Handle < LHEEventProduct > h_LHEEvent;
-  iEvent.getByToken(t_LHEEvent_, h_LHEEvent);
+  bool isLHEAvailable = iEvent.getByToken(t_LHEEvent_, h_LHEEvent);
+  if( !isLHEAvailable ) return;
 
   const lhef::HEPEUP& lheEvent = h_LHEEvent->hepeup();
   std::vector<lhef::HEPEUP::FiveVector> lheParticles = lheEvent.PUP;
@@ -196,29 +239,52 @@ void GenDileptonHistProducer::analyze(const edm::Event& iEvent, const edm::Event
   // cout << "# LHE lepton = " << vec_vecP_LHELep.size() << endl;
 
   auto nLHELep = vec_vecP_LHELep.size();
-  if( nLHELep != 2 ) {
-    cout << "nLHELep = " << nLHELep << " is not equal to 2! ... do not fill the histograms" << endl;
+  // nLHELep != 0: can happen if the sample is 3-flavor sample
+  if( nLHELep != 0 && nLHELep != 2 ) {
+    cout << "nLHELep = " << nLHELep << " is not equal to 0 or 2! ... do not fill the histograms" << endl;
     return;
   }
+  if( nLHELep == 0 ) return;
 
   TLorentzVector vecP_dilep_LHE = vec_vecP_LHELep[0] + vec_vecP_LHELep[1];
+  TLorentzVector vecP_lead_LHE = vec_vecP_LHELep[0].Pt() > vec_vecP_LHELep[1].Pt() ? vec_vecP_LHELep[0] : vec_vecP_LHELep[1];
+  TLorentzVector vecP_sub_LHE  = vec_vecP_LHELep[0].Pt() > vec_vecP_LHELep[1].Pt() ? vec_vecP_LHELep[1] : vec_vecP_LHELep[0];
 
   double weight_LHE = h_LHEEvent->originalXWGTUP();
-  h_LHE_weight_->Fill("sumWeight", weight_LHE);
-  if( weight_LHE > 0 ) h_LHE_weight_->Fill("sumWeight_pos", weight_LHE);
-  if( weight_LHE < 0 ) h_LHE_weight_->Fill("sumWeight_neg", weight_LHE);
 
-  h_LHE_diLep_mass_->Fill( vecP_dilep_LHE.M(), weight_LHE );
+  h_LHE_weight_keepAbs_->Fill("sumWeight", weight_LHE);
+  if( weight_LHE > 0 ) h_LHE_weight_keepAbs_->Fill("sumWeight_pos", weight_LHE);
+  if( weight_LHE < 0 ) h_LHE_weight_keepAbs_->Fill("sumWeight_neg", weight_LHE);
+
+  h_LHE_diLep_mass_keepAbs_->Fill( vecP_dilep_LHE.M(), weight_LHE );
 
   // -- only take the sign of the weight: to avoid a few events with too large weights which ruins the whole distribution
   double weight_LHE_sign = 0;
   if( weight_LHE != 0 )
     weight_LHE_sign = weight_LHE > 0 ? weight_LHE = 1.0 : weight_LHE = -1.0;
 
-  h_LHE_weight_signOnly_->Fill( "sumWeight", weight_LHE_sign );
-  if( weight_LHE_sign > 0 ) h_LHE_weight_signOnly_->Fill( "sumWeight_pos", weight_LHE_sign );
-  if( weight_LHE_sign < 0 ) h_LHE_weight_signOnly_->Fill( "sumWeight_neg", weight_LHE_sign );
-  h_LHE_diLep_mass_signOnly_->Fill( vecP_dilep_LHE.M(), weight_LHE_sign );
+  h_LHE_weight_->Fill( "sumWeight", weight_LHE_sign );
+  if( weight_LHE_sign > 0 ) h_LHE_weight_->Fill( "sumWeight_pos", weight_LHE_sign );
+  if( weight_LHE_sign < 0 ) h_LHE_weight_->Fill( "sumWeight_neg", weight_LHE_sign );
+  h_LHE_diLep_mass_->Fill( vecP_dilep_LHE.M(), weight_LHE_sign );
+  h_LHE_diLep_pt_->Fill( vecP_dilep_LHE.Pt(), weight_LHE_sign );
+  h_LHE_diLep_rap_->Fill( vecP_dilep_LHE.Rapidity(), weight_LHE_sign );
+
+  h_LHE_lep_pt_->Fill(vecP_lead_LHE.Pt(), weight_LHE_sign);
+  h_LHE_lep_eta_->Fill(vecP_lead_LHE.Eta(), weight_LHE_sign);
+  h_LHE_lep_phi_->Fill(vecP_lead_LHE.Phi(), weight_LHE_sign);
+  h_LHE_lep_pt_->Fill(vecP_sub_LHE.Pt(), weight_LHE_sign);
+  h_LHE_lep_eta_->Fill(vecP_sub_LHE.Eta(), weight_LHE_sign);
+  h_LHE_lep_phi_->Fill(vecP_sub_LHE.Phi(), weight_LHE_sign);
+
+  h_LHE_lep_lead_pt_->Fill(vecP_lead_LHE.Pt(), weight_LHE_sign);
+  h_LHE_lep_lead_eta_->Fill(vecP_lead_LHE.Eta(), weight_LHE_sign);
+  h_LHE_lep_lead_phi_->Fill(vecP_lead_LHE.Phi(), weight_LHE_sign);
+
+  h_LHE_lep_sub_pt_->Fill(vecP_sub_LHE.Pt(), weight_LHE_sign);
+  h_LHE_lep_sub_eta_->Fill(vecP_sub_LHE.Eta(), weight_LHE_sign);
+  h_LHE_lep_sub_phi_->Fill(vecP_sub_LHE.Phi(), weight_LHE_sign);
+
 }
 
 DEFINE_FWK_MODULE(GenDileptonHistProducer);
