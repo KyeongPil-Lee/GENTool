@@ -34,10 +34,7 @@ process.load('Configuration.Geometry.GeometryRecoDB_cff')
 from GENTool.EDTool.GenDileptonHistProducer_cfi import *
 
 process.genDileptonHistProducer = GenDileptonHistProducer.clone()
-# process.genDileptonHistProducer.genID_lepton    = cms.untracked.int32(13)
-# process.genDileptonHistProducer.genFlag_lepton  = cms.untracked.string("isHardProcess") # -- isHardProcess or fromHardProcessFinalState
 process.genDileptonHistProducer.GenParticles = cms.untracked.InputTag("prunedGenParticles") # -- miniAOD
-# process.genDileptonHistProducer.genFlag_lepton = cms.untracked.string("")
 
 process.mypath = cms.EndPath(process.genDileptonHistProducer)
 
