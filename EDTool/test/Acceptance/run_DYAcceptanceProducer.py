@@ -11,6 +11,18 @@ options.register('globalTag',
                   VarParsing.varType.string,         # string, int, or float
                   "global tag")
 
+options.register('channel',
+                  "mm", # default value
+                  VarParsing.multiplicity.singleton, # singleton or list
+                  VarParsing.varType.string,         # string, int, or float
+                  "channel (ee or mm)")
+
+options.register('cutAtM100',
+                  "false", # default value
+                  VarParsing.multiplicity.singleton, # singleton or list
+                  VarParsing.varType.string,         # string, int, or float
+                  "Apply a cut at m=100 GeV? (for m-50 sample)")
+
 # options.register('leptonType',
 #                   "none", # default value
 #                   VarParsing.multiplicity.singleton, # singleton or list
@@ -18,6 +30,13 @@ options.register('globalTag',
 #                   "lepton type (electron or muon)")
 
 options.parseArguments()
+
+print("\n#######################")
+print(" ---Input arguments ---")
+print("global tag:  %s" % options.globalTag)
+print("channel:     %s" % options.channel)
+print("cutAtM100: %s" % options.cutAtM100)
+print("#######################\n")
 
 process = cms.Process("GENTool")
 
@@ -47,6 +66,7 @@ process.mergedGenParticles = cms.EDProducer("MergedGenParticleProducer",
     inputPacked = cms.InputTag("packedGenParticles"),
 )
 
+process.load("SimGeneral.HepPDTESSource.pythiapdt_cfi")
 process.genParticles2HepMC = cms.EDProducer("GenParticles2HepMCConverter",
     genParticles = cms.InputTag("mergedGenParticles"),
     genEventInfo = cms.InputTag("generator"),
@@ -82,12 +102,21 @@ process.particleLevel = cms.EDProducer("ParticleLevelProducer",
 )
 
 # -- plot producer
+cutAtM100_bool = False
+if options.cutAtM100 == "true" or options.cutAtM100 == "True": 
+    cutAtM100_bool = True
 process.DYAcceptanceProducer = cms.EDAnalyzer('DYAcceptanceProducer',
     LHERunInfoProduct = cms.untracked.InputTag("externalLHEProducer"),
     LHEEvent     = cms.untracked.InputTag("externalLHEProducer"),
     GenEventInfo = cms.untracked.InputTag("generator"),
     GenParticles = cms.untracked.InputTag("genParticles"),
     DressedLepton = cms.untracked.InputTag("particleLevel:leptons"),
+    Channel = cms.untracked.string(options.channel),
+    PtCut_lead  = cms.untracked.double(20.0),
+    PtCut_sub   = cms.untracked.double(15.0),
+    EtaCut_lead = cms.untracked.double(2.4),
+    EtaCut_sub  = cms.untracked.double(2.4),
+    Cut_At_M100 = cms.untracked.bool(cutAtM100_bool), # -- for m-50 sample (drop events above m=100 GeV to combine with high mass samples)
 )
 
 process.mypath = cms.EndPath(

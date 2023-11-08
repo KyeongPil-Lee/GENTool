@@ -1,8 +1,11 @@
+#include "TString.h"
 #include "TH1D.h"
 #include "TLorentzVector.h"
 
 #include "FWCore/Framework/interface/EDAnalyzer.h"
 #include "FWCore/Framework/interface/Event.h"
+#include "FWCore/Framework/interface/EventSetup.h"
+#include "FWCore/Framework/interface/Run.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 
@@ -10,6 +13,7 @@
 #include "SimDataFormats/GeneratorProducts/interface/LHERunInfoProduct.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticleFwd.h"
+#include "DataFormats/JetReco/interface/GenJetCollection.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
 
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
@@ -68,10 +72,36 @@ public:
       it_pair->second->Fill( value, weight );
   }
 
+  // -- when you fill the histogram with a tag
+  // -- if no histogram was registered with the tag, it will automatically add the new histogram with the given tag
+  void Fill(TString baseVar, TString tag, Double_t value, Double_t weight = 1.0 ) {
+
+    TString var_wTag = TString::Format("%s_%s", baseVar.Data(), tag.Data());
+
+    auto it_pair = map_var_hist_.find(var_wTag);
+    if( it_pair == map_var_hist_.end() ) {
+      // -- if no histogram is available with the tag, make it:
+      cout << "no "+baseVar+" histogram is registered for the tag = " + tag + " ... make it" << endl;
+      TH1D* h_baseVar = Get(baseVar);
+
+      TH1D* h_var_wTag = fs_->make<TH1D>(*h_baseVar); // -- copy the format (binning)
+
+      TString histName = h_baseVar->GetName();
+      histName.ReplaceAll(baseVar, var_wTag);
+      h_var_wTag->SetName(histName);
+
+      h_var_wTag->Fill( value, weight );
+
+      map_var_hist_.insert( std::make_pair(var_wTag, h_var_wTag) );
+    }
+    else
+      it_pair->second->Fill( value, weight );
+  }
+
   TH1D* Get(TString var) {
     auto it_pair = map_var_hist_.find(var);
     if( it_pair == map_var_hist_.end() )
-      std::cout << "no histogram corresponding to " << var << std::endl;
+      std::cout << "[HistSet::Get] no histogram corresponding to " << var << std::endl;
     else
       return it_pair->second;
 
@@ -91,8 +121,7 @@ private:
 
 class HistContainer {
 public:
-  HistContainer(edm::Service<TFileService>& fs, TString type) {
-    type_ = type;
+  HistContainer(edm::Service<TFileService>& fs, TString type): type_(type) {
     Init(fs);
   }
 
@@ -104,7 +133,10 @@ public:
     etaCut_sub_ = etaCut_sub;
   }
 
-  void Fill( TLorentzVector vecP_lep1, TLorentzVector vecP_lep2, double weight) {
+  void Fill(const TLorentzVector& vecP_lep1, 
+            const TLorentzVector& vecP_lep2, 
+            const double& weight, 
+            const std::map<TString, double>& map_systWRatio) {
 
     // fill weight regardless of passing or failing acceptance
     histSet_->Get("weight")->Fill("sumWeight", weight);
@@ -132,6 +164,11 @@ public:
     histSet_->Fill( "diLep_mass", vecP_diLep.M(), weight);
     histSet_->Fill( "diLep_pt", vecP_diLep.Pt(), weight);
     histSet_->Fill( "diLep_rap", vecP_diLep.Rapidity(), weight);
+
+    for(const auto& pair : map_systWRatio ) {
+      double weight_systVar = weight*pair.second;
+      histSet_->Fill( "diLep_mass", pair.first, vecP_diLep.M(), weight_systVar);
+    }
   }
 
 private:
@@ -206,27 +243,15 @@ class DYAcceptanceProducer : public edm::EDAnalyzer {
     edm::EDGetTokenT<std::vector<reco::GenParticle>> t_genParticles_;
     edm::EDGetTokenT<reco::GenJetCollection>         t_dressedLepton_;
     
+    std::string channel_;
+    int thePDGID_ = 0;
 
-    // HistContainer* hist_mm_; // -- full phase space
+    bool doCut_at_m100_ = false;
 
-    // HistContainer* hist_HP_mm_; // -- isHardProcess
-    // HistContainer* hist_HPFS_mm_; // -- fromHardProcessFinalState
-    // HistContainer* hist_LHE_mm_; // -- LHE
+    void Save_weightInfo(std::map<TString, double>& map_systWRatio, const int& id_weight, const double& ratio);
 
-    // HistContainer* hist_HP_ee_; // -- isHardProcess
-    // HistContainer* hist_HPFS_ee_; // -- fromHardProcessFinalState
-    // HistContainer* hist_LHE_ee_; // -- LHE
-
-    // // -- within acceptance
-    // HistContainer* hist_HPFS_mm_acc_;
-    // HistContainer* hist_HPFS_ee_acc_;
-
-    // // -- within acceptance, another scenario
-    // HistContainer* hist_HPFS_mm_acc_v2_;
-    // HistContainer* hist_HPFS_ee_acc_v2_;
-
-    // void Fill_GENLepton(std::vector<reco::GenParticle> vec_GenParticle, HistContainer* hist, double weight, std::string genFlag, int pdgID);
-    // void Fill_LHELepton(const lhef::HEPEUP& lheEvent, HistContainer* hist, double weight, int pdgID);
+    HistContainer* hist_; // -- full phase space
+    HistContainer* hist_acc_; // -- fiducial phase space
 };
 
 DYAcceptanceProducer::DYAcceptanceProducer(const edm::ParameterSet& iConfig):
@@ -235,25 +260,25 @@ t_LHEEvent_   ( mayConsume< LHEEventProduct >                (iConfig.getUntrack
 t_genEventInfo_( consumes< GenEventInfoProduct >            (iConfig.getUntrackedParameter<edm::InputTag>("GenEventInfo")) ),
 t_genParticles_( consumes< std::vector<reco::GenParticle> > (iConfig.getUntrackedParameter<edm::InputTag>("GenParticles"))),
 t_dressedLepton_( consumes< reco::GenJetCollection >        (iConfig.getUntrackedParameter<edm::InputTag>("DressedLepton"))) {
+  
+  channel_ = iConfig.getUntrackedParameter<std::string>("Channel");
+  if( channel_ == "ee" )      thePDGID_ = 11;
+  else if( channel_ == "mm" ) thePDGID_ = 13;
+  else
+    throw std::invalid_argument("Channel  = " + channel_ + " is not supported!");
+
   edm::Service<TFileService> fs;
 
-  // hist_HP_mm_ = new HistContainer(fs, "HP_mm");
-  // hist_HPFS_mm_ = new HistContainer(fs, "HPFS_mm");
-  // hist_LHE_mm_ = new HistContainer(fs, "LHE_mm");
+  hist_    = new HistContainer(fs, "");
+  hist_acc_ = new HistContainer(fs, "acc");
 
-  // hist_HP_ee_ = new HistContainer(fs, "HP_ee");
-  // hist_HPFS_ee_ = new HistContainer(fs, "HPFS_ee");
-  // hist_LHE_ee_ = new HistContainer(fs, "LHE_ee");
+  double ptCut_lead  = iConfig.getUntrackedParameter<double>("PtCut_lead");
+  double ptCut_sub   = iConfig.getUntrackedParameter<double>("PtCut_sub");
+  double etaCut_lead = iConfig.getUntrackedParameter<double>("EtaCut_lead");
+  double etaCut_sub  = iConfig.getUntrackedParameter<double>("EtaCut_sub");
+  hist_acc_->Set_Acc(ptCut_lead, etaCut_lead, ptCut_sub, etaCut_sub);
 
-  // hist_HPFS_mm_acc_ = new HistContainer(fs, "HPFS_mm_acc");
-  // hist_HPFS_ee_acc_ = new HistContainer(fs, "HPFS_ee_acc");
-  // hist_HPFS_mm_acc_->Set_Acc(3.0, 2.4, 3.0, 2.4); // UPDATE: set via python arguments
-  // hist_HPFS_ee_acc_->Set_Acc(3.0, 2.4, 3.0, 2.4);
-
-  // hist_HPFS_mm_acc_v2_ = new HistContainer(fs, "HPFS_mm_acc_v2");
-  // hist_HPFS_ee_acc_v2_ = new HistContainer(fs, "HPFS_ee_acc_v2");
-  // hist_HPFS_mm_acc_v2_->Set_Acc(20.0, 2.4, 15.0, 2.4);
-  // hist_HPFS_ee_acc_v2_->Set_Acc(28.0, 2.4, 20.0, 2.4);
+  doCut_at_m100_ = iConfig.getUntrackedParameter<bool>("Cut_At_M100");
 }
 
 void DYAcceptanceProducer::analyze(const edm::Event& iEvent, const edm::EventSetup& iEventSetup) {
@@ -264,123 +289,98 @@ void DYAcceptanceProducer::analyze(const edm::Event& iEvent, const edm::EventSet
 
   double weight = h_genEventInfo->weight();
 
-  edm::Handle<reco::GenJetCollection> h_dressedLepton;
-  iEvent.getByToken(t_dressedLepton_, h_dressedLepton);
-
   // -- LHE event (return if it is not available)
   edm::Handle < LHEEventProduct > h_LHEEvent;
   bool hasLHE = iEvent.getByToken(t_LHEEvent_, h_LHEEvent);
   if( !hasLHE ) return;
 
+  // -- get weights for the systematic variations
   double LHEWeight_cv = h_LHEEvent->originalXWGTUP();
   int nSystWeight = (int)h_LHEEvent->weights().size();
-  vector<double> vec_systWeightRatio[nSystWeight];
+  std::map<TString, double> map_systWRatio;
+
   for(int i_weight=0; i_weight<nSystWeight; ++i_weight) {
     double systWeight_ith = h_LHEEvent->weights()[i_weight].wgt;
     double ratio = systWeight_ith / LHEWeight_cv;
-    vec_systWeightRatio.push_back(ratio);
-    std::cout << i_weight << "th weight = " << weight 
-              << "(ID = " << LHEInfo->weights()[i_weight].id <<"), ratio w.r.t. original: " << ratio << endl;
+    TString id_weight = h_LHEEvent->weights()[i_weight].id;
+
+    // -- Atoi: convert TString to int
+    Save_weightInfo(map_systWRatio, id_weight.Atoi(), ratio);
+    // vec_systWeightRatio.push_back(ratio);
+    // std::cout << i_weight << "th weight = " << weight 
+    //           << "(ID = " << h_LHEEvent->weights()[i_weight].id <<"), ratio w.r.t. original: " << ratio << endl;
   }
 
+  // -- collect dressed leptons
+  edm::Handle<reco::GenJetCollection> h_dressedLepton;
+  iEvent.getByToken(t_dressedLepton_, h_dressedLepton);
 
+  vector<TLorentzVector> vec_vecP_lep;
+  for(size_t i_lep=0; i_lep<(*h_dressedLepton).size(); ++i_lep) {
+    reco::GenJet dLep = (*h_dressedLepton)[i_lep];
 
+    if( abs(dLep.pdgId()) != thePDGID_ ) continue;
 
+    TLorentzVector vecP_lep;
+    vecP_lep.SetPtEtaPhiM(dLep.pt(), dLep.eta(), dLep.phi(), dLep.mass());
+    vec_vecP_lep.push_back(vecP_lep);
+  }
 
+  auto nLep = vec_vecP_lep.size();
+  if( nLep != 2 ) {
+    cout << "nLep = " << nLep << " is not equal to 2! ..." << endl;
+    cout << "all lepton kinematics:" << endl;
+    for(const auto& vecP_lep : vec_vecP_lep) {
+      printf("  (pt, eta, phi) = (%.1lf, %.3lf, %.3lf)\n", vecP_lep.Pt(), vecP_lep.Eta(), vecP_lep.Phi());
+    }
+    if( nLep > 2 )
+      cout << "--> nLep > 2: use the two leading leptons" << endl;
+    else { // -- if nLep == 0 or == 1
+      cout << "--> nLep < 2: does not fill the histogram" << endl;
+      return;
+    }
+  }
+  // // nLep != 0: can happen if the sample is 3-flavor sample
+  // if( nLep != 0 && nLep != 2 ) {
+  //   cout << "nLep = " << nLep << " is not equal to 0 or 2! ... do not fill the histograms" << endl;
+  //   return;
+  // }
+  // if( nLep == 0 ) return;
 
+  // -- does not fill the event if it has m(ll) > 100.0 GeV
+  // -- to combine it with the high mass samples
+  if( doCut_at_m100_ ) {
+    double diLep_mass = (vec_vecP_lep[0]+vec_vecP_lep[1]).M();
+    if( diLep_mass > 100.0 ) return;
+  }
 
-
-  // // -- GEN particles
-  // edm::Handle < std::vector<reco::GenParticle> > h_genParticles;
-  // iEvent.getByToken(t_genParticles_, h_genParticles);
-
-  // Fill_GENLepton(*h_genParticles, hist_HP_ee_, weight, "isHardProcess", 11);
-  // Fill_GENLepton(*h_genParticles, hist_HP_mm_, weight, "isHardProcess", 13);
-
-  // Fill_GENLepton(*h_genParticles, hist_HPFS_ee_, weight, "fromHardProcessFinalState", 11);
-  // Fill_GENLepton(*h_genParticles, hist_HPFS_mm_, weight, "fromHardProcessFinalState", 13);
-
-  // Fill_GENLepton(*h_genParticles, hist_HPFS_ee_acc_, weight, "fromHardProcessFinalState", 11);
-  // Fill_GENLepton(*h_genParticles, hist_HPFS_mm_acc_, weight, "fromHardProcessFinalState", 13);
-
-  // Fill_GENLepton(*h_genParticles, hist_HPFS_ee_acc_v2_, weight, "fromHardProcessFinalState", 11);
-  // Fill_GENLepton(*h_genParticles, hist_HPFS_mm_acc_v2_, weight, "fromHardProcessFinalState", 13);
-
-  // // -- LHE events
-  // edm::Handle < LHEEventProduct > h_LHEEvent;
-  // if( iEvent.getByToken(t_LHEEvent_, h_LHEEvent) ) { // -- run only when LHE information is available (some samples don't have LHE)
-  //   double weight_LHE = h_LHEEvent->originalXWGTUP();
-
-  //   const lhef::HEPEUP& lheEvent = h_LHEEvent->hepeup();
-  //   Fill_LHELepton(lheEvent, hist_LHE_ee_, weight_LHE, 11);
-  //   Fill_LHELepton(lheEvent, hist_LHE_mm_, weight_LHE, 13);
-  // } // -- end of isLHE
-
+  // -- fill the histograms
+  hist_->Fill(vec_vecP_lep[0], vec_vecP_lep[1], weight, map_systWRatio);
+  hist_acc_->Fill(vec_vecP_lep[0], vec_vecP_lep[1], weight, map_systWRatio);
 }
 
-// void DYAcceptanceProducer::Fill_GENLepton(std::vector<reco::GenParticle> vec_GenParticle, HistContainer* hist, double weight, std::string genFlag, int pdgID) {
-//   vector<TLorentzVector> vec_vecP_lep;
+void DYAcceptanceProducer::Save_weightInfo(std::map<TString, double>& map_systWRatio, const int& id_weight, const double& ratio) {
+  TString tag = "";
 
-//   for(size_t i_gen=0; i_gen<vec_GenParticle.size(); ++i_gen) {
-//     reco::GenParticle genLepton = vec_GenParticle[i_gen];
+  // -- id = 1001 ... 1009: scale variations
+  if( 1001 <= id_weight && id_weight <= 1009 ) {
+    int nVar = id_weight - 1000; // -- e.g. id_weight = 1001 --> nVar = 1
+    tag = TString::Format("scaleVar_%02d", nVar);
+  }
+  // -- id = 2000:          central value
+  // -- id = 2001 ... 2100: 100 hessian sets
+  // -- id = 2101:          alphaS, up
+  // -- id = 2102:          alphaS, down
+  else if( 2000 <= id_weight && id_weight <= 2102 ) {
+    int nVar = id_weight - 2000; // -- e.g. id_weight = 2001 --> nVar = 1
+    tag = TString::Format("PDFVar_%02d", nVar);    
+  }
 
-//     if( abs(genLepton.pdgId()) != pdgID ) continue;
-
-//     bool passGenFlag = false;
-//     if( genFlag == "isHardProcess" )             passGenFlag = genLepton.isHardProcess();
-//     if( genFlag == "fromHardProcessFinalState" ) passGenFlag = genLepton.fromHardProcessFinalState();
-//     if( genFlag == "" )                          passGenFlag = true; // take any particles
-
-//     if( !passGenFlag ) continue;
-
-//     TLorentzVector vecP_lep;
-//     vecP_lep.SetPxPyPzE(genLepton.px(), genLepton.py(), genLepton.pz(), genLepton.energy());
-//     vec_vecP_lep.push_back(vecP_lep);
-//   }
-
-//   auto nLep = vec_vecP_lep.size();
-//   // nLep != 0: can happen if the sample is 3-flavor sample
-//   if( nLep != 0 && nLep != 2 ) {
-//     cout << "nLep = " << nLep << " is not equal to 0 or 2! ... do not fill the histograms" << endl;
-//     return;
-//   }
-//   if( nLep == 0 ) return;
-
-//   hist->Fill(vec_vecP_lep[0], vec_vecP_lep[1], weight);
-// }
-
-// void DYAcceptanceProducer::Fill_LHELepton(const lhef::HEPEUP& lheEvent, HistContainer* hist, double weight, int pdgID) {
-//   vector<TLorentzVector> vec_vecP_lep;
-
-//   std::vector<lhef::HEPEUP::FiveVector> lheParticles = lheEvent.PUP;
-//   for( size_t i_par = 0; i_par < lheParticles.size(); ++i_par ) {
-//     Int_t id = lheEvent.IDUP[i_par];
-
-//     if( abs(id) != pdgID ) continue;
-
-//     Double_t px     = lheParticles[i_par][0];
-//     Double_t py     = lheParticles[i_par][1];
-//     Double_t pz     = lheParticles[i_par][2];
-//     Double_t energy = lheParticles[i_par][3];
-//     // Double_t M = lheParticles[i_par][4];   
-//     // Int_t status = lheEvent.ISTUP[i_par];
-
-//     TLorentzVector vecP_lep;
-//     vecP_lep.SetPxPyPzE(px, py, pz, energy);
-
-//     vec_vecP_lep.push_back( vecP_lep );
-//   }
-
-//   auto nLep = vec_vecP_lep.size();
-//   // nLep != 0: can happen if the sample is 3-flavor sample
-//   if( nLep != 0 && nLep != 2 ) {
-//     cout << "nLep = " << nLep << " is not equal to 0 or 2! ... do not fill the histograms" << endl;
-//     return;
-//   }
-//   if( nLep == 0 ) return;
-
-//   hist->Fill(vec_vecP_lep[0], vec_vecP_lep[1], weight);
-// }
+  if( tag != "" ) {
+    // cout << "  (id_weight, tag, ratio) = (" << id_weight << ", " << tag << ", " << ratio << ")" << endl; 
+    map_systWRatio.insert( std::make_pair(tag, ratio) );
+  }
+}
 
 void DYAcceptanceProducer::endRun(const Run& iRun, const EventSetup& iSetup) {
   // -- LHE information
