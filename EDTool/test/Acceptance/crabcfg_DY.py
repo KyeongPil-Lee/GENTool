@@ -196,6 +196,13 @@ if __name__ == '__main__':
         list_sample = dic_type_samples[sampleType]
         for datasetName in list_sample:
 
+            if datasetName == '/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18MiniAODv2-106X_upgrade2018_realistic_v16_L1v1-v2/MINIAODSIM':
+                # -- automatic splitting is failed due to too many lumi-sections in the dataset
+                config.Data.splitting = 'FileBased'
+                config.Data.unitsPerJob = 5
+            else:
+                config.Data.splitting = 'Automatic'
+
             massRange = datasetName
             massRange = massRange.split("/")[1] # -- e.g. DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos
             massRange = massRange.split("-")[1] # -- e.g. 800to1000_H2ErratumFix_TuneCP5_13TeV
