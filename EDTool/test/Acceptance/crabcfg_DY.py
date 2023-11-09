@@ -17,7 +17,7 @@ config.Data.publication = False
 
 config.Site.storageSite = 'T2_BE_IIHE'
 
-version = 'v1'
+version = 'v2'
 config.Data.outLFNDirBase = '/store/user/kplee/DYAccPlot_%s' % version
 # -- dasgoclient --query "/DYJetsToMuMu_M-*powhegMiNNLO*/RunIISummer20UL16MiniAODAPVv2*/MINIAODSIM"
 list_sample_16pre_mm = [ 
@@ -150,7 +150,7 @@ list_sample_18_ee = [
 
 dic_type_samples = {
     "16pre_mm" : list_sample_16pre_mm,
-    # "16post_mm" : list_sample_16post_mm, # -- submit: done
+    "16post_mm" : list_sample_16post_mm,
     "17_mm" : list_sample_17_mm,
     "18_mm" : list_sample_18_mm,
     "16pre_ee" : list_sample_16pre_ee,
@@ -202,6 +202,7 @@ if __name__ == '__main__':
                 config.Data.unitsPerJob = 5
             else:
                 config.Data.splitting = 'Automatic'
+                config.Data.unitsPerJob = 180 # -- target time in mins: minimum 180 mins (3 hours)
 
             massRange = datasetName
             massRange = massRange.split("/")[1] # -- e.g. DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos

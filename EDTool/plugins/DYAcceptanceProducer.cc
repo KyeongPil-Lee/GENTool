@@ -288,6 +288,7 @@ void DYAcceptanceProducer::analyze(const edm::Event& iEvent, const edm::EventSet
   iEvent.getByToken(t_genEventInfo_, h_genEventInfo);
 
   double weight = h_genEventInfo->weight();
+  weight = (weight > 0) ? 1.0 : -1.0; // -- take sign-only (to avoid too large weight in a few events)
 
   // -- LHE event (return if it is not available)
   edm::Handle < LHEEventProduct > h_LHEEvent;
