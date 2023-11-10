@@ -249,6 +249,7 @@ class DYAcceptanceProducer : public edm::EDAnalyzer {
     bool doCut_at_m100_ = false;
 
     void Save_weightInfo(std::map<TString, double>& map_systWRatio, const int& id_weight, const double& ratio);
+    double Get_DileptonMass_IsHardProcess(const edm::Event& iEvent);
 
     HistContainer* hist_; // -- full phase space
     HistContainer* hist_acc_; // -- fiducial phase space
@@ -351,13 +352,63 @@ void DYAcceptanceProducer::analyze(const edm::Event& iEvent, const edm::EventSet
   // -- does not fill the event if it has m(ll) > 100.0 GeV
   // -- to combine it with the high mass samples
   if( doCut_at_m100_ ) {
-    double diLep_mass = (vec_vecP_lep[0]+vec_vecP_lep[1]).M();
+    // double diLep_mass = (vec_vecP_lep[0]+vec_vecP_lep[1]).M();
+    double diLep_mass = Get_DileptonMass_IsHardProcess(iEvent);
     if( diLep_mass > 100.0 ) return;
   }
 
   // -- fill the histograms
   hist_->Fill(vec_vecP_lep[0], vec_vecP_lep[1], weight, map_systWRatio);
   hist_acc_->Fill(vec_vecP_lep[0], vec_vecP_lep[1], weight, map_systWRatio);
+}
+
+double DYAcceptanceProducer::Get_DileptonMass_IsHardProcess(const edm::Event& iEvent) {
+
+  edm::Handle < std::vector<reco::GenParticle> > h_genParticles;
+  iEvent.getByToken(t_genParticles_, h_genParticles);
+
+  vector<TLorentzVector> vec_vecP_lep;
+  for(size_t i_gen=0; i_gen<(*h_genParticles).size(); ++i_gen) {
+    reco::GenParticle genLepton = (*h_genParticles)[i_gen];
+
+    if( abs(genLepton.pdgId()) != thePDGID_ ) continue;
+    if( !genLepton.isHardProcess() ) continue;
+
+    // bool passGenFlag = false;
+    // if( genFlag == "isHardProcess" )             passGenFlag = genLepton.isHardProcess();
+    // if( genFlag == "fromHardProcessFinalState" ) passGenFlag = genLepton.fromHardProcessFinalState();
+    // if( genFlag == "" )                          passGenFlag = true; // take any particles
+
+    // if( !passGenFlag ) continue;
+
+    TLorentzVector vecP_lep;
+    vecP_lep.SetPxPyPzE(genLepton.px(), genLepton.py(), genLepton.pz(), genLepton.energy());
+    vec_vecP_lep.push_back(vecP_lep);
+  }
+
+  auto nLep = vec_vecP_lep.size();
+  // nLep != 0: can happen if the sample is 3-flavor sample
+  // if( nLep != 0 && nLep != 2 ) {
+  //   cout << "nLep = " << nLep << " is not equal to 0 or 2! ... do not fill the histograms" << endl;
+  //   return;
+  // }
+  // if( nLep == 0 ) return;
+
+  if( nLep != 2 ) {
+    cout << "[Get_DileptonMass_IsHardProcess] nLep = " << nLep << " is not equal to 2! ..." << endl;
+    cout << "all lepton kinematics:" << endl;
+    for(const auto& vecP_lep : vec_vecP_lep) {
+      printf("  (pt, eta, phi) = (%.1lf, %.3lf, %.3lf)\n", vecP_lep.Pt(), vecP_lep.Eta(), vecP_lep.Phi());
+    }
+    if( nLep > 2 )
+      cout << "--> nLep > 2: use the two leading leptons" << endl;
+    else { // -- if nLep == 0 or == 1
+      cout << "--> nLep < 2: mass = 0" << endl;
+      return 0;
+    }
+  }
+
+  return (vec_vecP_lep[0]+vec_vecP_lep[1]).M();
 }
 
 void DYAcceptanceProducer::Save_weightInfo(std::map<TString, double>& map_systWRatio, const int& id_weight, const double& ratio) {

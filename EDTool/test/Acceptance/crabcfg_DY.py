@@ -2,7 +2,7 @@ from CRABClient.UserUtilities import config
 config = config()
 
 config.General.requestName = ''
-config.General.workArea = 'CRABDir'
+# config.General.workArea = 'CRABDir'
 
 config.JobType.pluginName = 'Analysis'
 config.JobType.psetName = 'run_DYAcceptanceProducer.py'
@@ -18,6 +18,7 @@ config.Data.publication = False
 config.Site.storageSite = 'T2_BE_IIHE'
 
 version = 'v2'
+config.General.workArea = 'CRABDir_%s' % version
 config.Data.outLFNDirBase = '/store/user/kplee/DYAccPlot_%s' % version
 # -- dasgoclient --query "/DYJetsToMuMu_M-*powhegMiNNLO*/RunIISummer20UL16MiniAODAPVv2*/MINIAODSIM"
 list_sample_16pre_mm = [ 

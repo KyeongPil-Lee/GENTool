@@ -109,7 +109,7 @@ process.DYAcceptanceProducer = cms.EDAnalyzer('DYAcceptanceProducer',
     LHERunInfoProduct = cms.untracked.InputTag("externalLHEProducer"),
     LHEEvent     = cms.untracked.InputTag("externalLHEProducer"),
     GenEventInfo = cms.untracked.InputTag("generator"),
-    GenParticles = cms.untracked.InputTag("genParticles"),
+    GenParticles = cms.untracked.InputTag("prunedGenParticles"), # -- or genParticles if tier >= AOD
     DressedLepton = cms.untracked.InputTag("particleLevel:leptons"),
     Channel = cms.untracked.string(options.channel),
     PtCut_lead  = cms.untracked.double(20.0),
