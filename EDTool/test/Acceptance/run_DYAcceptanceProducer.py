@@ -1,6 +1,14 @@
 import FWCore.ParameterSet.Config as cms
 
-exampleFile = '/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToMuMu_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/270000/C10AF425-1891-5849-A619-CE2D859DC4FF.root'
+# -- m50 sample, mm
+# exampleFile = '/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToMuMu_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/270000/C10AF425-1891-5849-A619-CE2D859DC4FF.root'
+# nEvent = -1
+
+# -- m10to50 sample, ee
+# exampleFile = '/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/2560000/015AB5F3-7566-9B4C-BC3F-00C5181B27FB.root'
+exampleFile = '/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/2550000/7E3FB340-1701-F048-BDA1-82ED411CC300.root'
+# nEvent = 10000
+nEvent = 10000
 
 from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing('analysis')
@@ -12,7 +20,7 @@ options.register('globalTag',
                   "global tag")
 
 options.register('channel',
-                  "mm", # default value
+                  "ee", # default value
                   VarParsing.multiplicity.singleton, # singleton or list
                   VarParsing.varType.string,         # string, int, or float
                   "channel (ee or mm)")
@@ -22,6 +30,12 @@ options.register('cutAtM100',
                   VarParsing.multiplicity.singleton, # singleton or list
                   VarParsing.varType.string,         # string, int, or float
                   "Apply a cut at m=100 GeV? (for m-50 sample)")
+
+options.register('InvOverflow',
+                  "false", # default value
+                  VarParsing.multiplicity.singleton, # singleton or list
+                  VarParsing.varType.string,         # string, int, or float
+                  "Perform an investigation on the overflow events")
 
 # options.register('leptonType',
 #                   "none", # default value
@@ -36,6 +50,7 @@ print(" ---Input arguments ---")
 print("global tag:  %s" % options.globalTag)
 print("channel:     %s" % options.channel)
 print("cutAtM100: %s" % options.cutAtM100)
+print("InvOverflow: %s" % options.InvOverflow)
 print("#######################\n")
 
 process = cms.Process("GENTool")
@@ -48,7 +63,7 @@ process.source = cms.Source("PoolSource",
     secondaryFileNames = cms.untracked.vstring(),
 )
 
-process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(-1))
+process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(nEvent))
 
 process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_condDBv2_cff")
 process.GlobalTag.globaltag = options.globalTag
@@ -105,6 +120,10 @@ process.particleLevel = cms.EDProducer("ParticleLevelProducer",
 cutAtM100_bool = False
 if options.cutAtM100 == "true" or options.cutAtM100 == "True": 
     cutAtM100_bool = True
+
+InvOverflow_bool = False
+if options.InvOverflow == "true" or options.InvOverflow == "True": 
+    InvOverflow_bool = True
 process.DYAcceptanceProducer = cms.EDAnalyzer('DYAcceptanceProducer',
     LHERunInfoProduct = cms.untracked.InputTag("externalLHEProducer"),
     LHEEvent     = cms.untracked.InputTag("externalLHEProducer"),
@@ -117,6 +136,7 @@ process.DYAcceptanceProducer = cms.EDAnalyzer('DYAcceptanceProducer',
     EtaCut_lead = cms.untracked.double(2.4),
     EtaCut_sub  = cms.untracked.double(2.4),
     Cut_At_M100 = cms.untracked.bool(cutAtM100_bool), # -- for m-50 sample (drop events above m=100 GeV to combine with high mass samples)
+    Investigate_Overflow = cms.untracked.bool(InvOverflow_bool),
 )
 
 process.mypath = cms.EndPath(

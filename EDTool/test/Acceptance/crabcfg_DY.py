@@ -15,9 +15,10 @@ config.Data.splitting = 'Automatic'
 # config.Data.unitsPerJob = 5
 config.Data.publication = False
 
-config.Site.storageSite = 'T2_BE_IIHE'
+# config.Site.storageSite = 'T2_BE_IIHE'
+config.Site.storageSite = 'T3_KR_KNU' # -- as T2 BE server is shut down this week (13 Nov. 2023) ...
 
-version = 'v2'
+version = 'v3'
 config.General.workArea = 'CRABDir_%s' % version
 config.Data.outLFNDirBase = '/store/user/kplee/DYAccPlot_%s' % version
 # -- dasgoclient --query "/DYJetsToMuMu_M-*powhegMiNNLO*/RunIISummer20UL16MiniAODAPVv2*/MINIAODSIM"

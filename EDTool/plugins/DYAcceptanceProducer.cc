@@ -1,3 +1,5 @@
+#include "algorithm"
+
 #include "TString.h"
 #include "TH1D.h"
 #include "TLorentzVector.h"
@@ -247,9 +249,16 @@ class DYAcceptanceProducer : public edm::EDAnalyzer {
     int thePDGID_ = 0;
 
     bool doCut_at_m100_ = false;
+    bool doCheckOverflow_ = false;
 
     void Save_weightInfo(std::map<TString, double>& map_systWRatio, const int& id_weight, const double& ratio);
     double Get_DileptonMass_IsHardProcess(const edm::Event& iEvent);
+
+    void Print_OverflowEvent(const edm::Event& iEvent, const vector<TLorentzVector>& vec_vecP_dLep);
+    vector<TLorentzVector> Get_GenLeptons(const edm::Event& iEvent, const TString& genFlag);
+
+    vector<TLorentzVector> Find_TrueDYPairLepton(const edm::Event& iEvent, const vector<TLorentzVector>& vec_vecP_dLep);
+    TLorentzVector Matched_SmallestDR(const TLorentzVector& vecP_HP, const vector<TLorentzVector>& vec_vecP_dLep);
 
     HistContainer* hist_; // -- full phase space
     HistContainer* hist_acc_; // -- fiducial phase space
@@ -280,9 +289,17 @@ t_dressedLepton_( consumes< reco::GenJetCollection >        (iConfig.getUntracke
   hist_acc_->Set_Acc(ptCut_lead, etaCut_lead, ptCut_sub, etaCut_sub);
 
   doCut_at_m100_ = iConfig.getUntrackedParameter<bool>("Cut_At_M100");
+  doCheckOverflow_ = iConfig.getUntrackedParameter<bool>("Investigate_Overflow");
 }
 
 void DYAcceptanceProducer::analyze(const edm::Event& iEvent, const edm::EventSetup& iEventSetup) {
+
+  // -- does not fill the event if it has m(ll) > 100.0 GeV
+  // -- to combine it with the high mass samples
+  if( doCut_at_m100_ ) {
+    double diLep_mass = Get_DileptonMass_IsHardProcess(iEvent);
+    if( diLep_mass > 100.0 ) return;
+  }
 
   // -- GEN weights
   edm::Handle < GenEventInfoProduct > h_genEventInfo;
@@ -335,8 +352,10 @@ void DYAcceptanceProducer::analyze(const edm::Event& iEvent, const edm::EventSet
     for(const auto& vecP_lep : vec_vecP_lep) {
       printf("  (pt, eta, phi) = (%.1lf, %.3lf, %.3lf)\n", vecP_lep.Pt(), vecP_lep.Eta(), vecP_lep.Phi());
     }
-    if( nLep > 2 )
-      cout << "--> nLep > 2: use the two leading leptons" << endl;
+    if( nLep > 2 ) {
+      cout << "--> nLep > 2: find leptons from the true DY pairs (isHardProcess) by dR matching" << endl;
+      vec_vecP_lep = Find_TrueDYPairLepton(iEvent, vec_vecP_lep);
+    }
     else { // -- if nLep == 0 or == 1
       cout << "--> nLep < 2: does not fill the histogram" << endl;
       return;
@@ -349,21 +368,94 @@ void DYAcceptanceProducer::analyze(const edm::Event& iEvent, const edm::EventSet
   // }
   // if( nLep == 0 ) return;
 
-  // -- does not fill the event if it has m(ll) > 100.0 GeV
-  // -- to combine it with the high mass samples
-  if( doCut_at_m100_ ) {
-    // double diLep_mass = (vec_vecP_lep[0]+vec_vecP_lep[1]).M();
-    double diLep_mass = Get_DileptonMass_IsHardProcess(iEvent);
-    if( diLep_mass > 100.0 ) return;
-  }
-
   // -- fill the histograms
   hist_->Fill(vec_vecP_lep[0], vec_vecP_lep[1], weight, map_systWRatio);
   hist_acc_->Fill(vec_vecP_lep[0], vec_vecP_lep[1], weight, map_systWRatio);
+
+  // -- investigation: overflow event in m10-50
+  if( doCheckOverflow_ )
+    Print_OverflowEvent(iEvent, vec_vecP_lep);
 }
 
-double DYAcceptanceProducer::Get_DileptonMass_IsHardProcess(const edm::Event& iEvent) {
+// -- matching with "isHardProcess" leptons using eta and phi --> use the matched dressed leptons for the mass
+vector<TLorentzVector> DYAcceptanceProducer::Find_TrueDYPairLepton(const edm::Event& iEvent, const vector<TLorentzVector>& vec_vecP_dLep) {
+  vector<TLorentzVector> vec_matchedDLep;
 
+  vector<TLorentzVector> vec_vecP_HPLep = Get_GenLeptons(iEvent, "isHardProcess");
+
+  for(const auto& vecP_HP : vec_vecP_HPLep) {
+    TLorentzVector dLep_matched = Matched_SmallestDR(vecP_HP, vec_vecP_dLep);
+
+    // printf("[isHardProcess lepton]   (pt, eta, phi) = (%.3lf, %.3lf, %.3lf)\n", vecP_HP.Pt(), vecP_HP.Eta(), vecP_HP.Phi());
+    // printf("[Matched dressed lepton] (pt, eta, phi) = (%.3lf, %.3lf, %.3lf)\n", dLep_matched.Pt(), dLep_matched.Eta(), dLep_matched.Phi());
+    // printf("\n");
+
+    vec_matchedDLep.push_back( dLep_matched );
+  }
+
+  return vec_matchedDLep;
+}
+
+TLorentzVector DYAcceptanceProducer::Matched_SmallestDR(const TLorentzVector& vecP_HP, const vector<TLorentzVector>& vec_vecP_dLep) {
+  double dR_smallest = 1e10;
+
+  int i_selected = -1;
+  int nDLep = (int)vec_vecP_dLep.size();
+  for(int i=0; i<nDLep; ++i) {
+    double dR = vecP_HP.DeltaR( vec_vecP_dLep[i] );
+    if( dR < dR_smallest ) {
+      dR_smallest = dR;
+      i_selected = i;
+    }
+  }
+
+  if( i_selected < 0 )
+    throw std::runtime_error("[DYAcceptanceProducer::Matched_SmallestDR] no lepton is selected! check the details");
+
+  return vec_vecP_dLep[i_selected];
+}
+
+void DYAcceptanceProducer::Print_OverflowEvent(const edm::Event& iEvent, const vector<TLorentzVector>& vec_vecP_dLep) {
+  double diLep_mass_dressed = (vec_vecP_dLep[0]+vec_vecP_dLep[1]).M();
+  // -- only overflow events with m > 50 GeV is our interest for this investigation
+  if( diLep_mass_dressed < 50.0 ) return;
+
+  printf("[Print_OverflowEvent]\n");
+  printf("Dressed leptons:\n");
+  for(const auto& vecP : vec_vecP_dLep) {
+    printf("  (pt, eta, phi) = (%.1lf, %.3lf, %.3lf)\n", vecP.Pt(), vecP.Eta(), vecP.Phi());
+  }
+  printf("--> dilepton mass = %.1lf\n", diLep_mass_dressed);
+  printf("\n");
+
+
+  printf("isHardProcess leptons\n");
+  vector<TLorentzVector> vec_vecP_HPLep = Get_GenLeptons(iEvent, "isHardProcess");
+  for(const auto& vecP : vec_vecP_HPLep) {
+    printf("  (pt, eta, phi) = (%.1lf, %.3lf, %.3lf)\n", vecP.Pt(), vecP.Eta(), vecP.Phi());
+  }
+  if( vec_vecP_HPLep.size() >= 2 )
+    printf("--> dilepton mass = %.1lf\n", (vec_vecP_HPLep[0]+vec_vecP_HPLep[1]).M());
+  else
+    printf("--> less than 2 leptons!\n");
+  printf("\n");
+
+
+  printf("fromHardProcessFinalState leptons\n");
+  vector<TLorentzVector> vec_vecP_FSLep = Get_GenLeptons(iEvent, "fromHardProcessFinalState");
+  for(const auto& vecP : vec_vecP_FSLep) {
+    printf("  (pt, eta, phi) = (%.1lf, %.3lf, %.3lf)\n", vecP.Pt(), vecP.Eta(), vecP.Phi());
+  }
+  if( vec_vecP_FSLep.size() >= 2 )
+    printf("--> dilepton mass = %.1lf\n", (vec_vecP_FSLep[0]+vec_vecP_FSLep[1]).M());
+  else
+    printf("--> less than 2 leptons!\n");
+  printf("\n");
+
+  printf("--- Print_OverflowEvent: Done --- \n\n");
+}
+
+vector<TLorentzVector> DYAcceptanceProducer::Get_GenLeptons(const edm::Event& iEvent, const TString& genFlag) {
   edm::Handle < std::vector<reco::GenParticle> > h_genParticles;
   iEvent.getByToken(t_genParticles_, h_genParticles);
 
@@ -372,19 +464,25 @@ double DYAcceptanceProducer::Get_DileptonMass_IsHardProcess(const edm::Event& iE
     reco::GenParticle genLepton = (*h_genParticles)[i_gen];
 
     if( abs(genLepton.pdgId()) != thePDGID_ ) continue;
-    if( !genLepton.isHardProcess() ) continue;
 
-    // bool passGenFlag = false;
-    // if( genFlag == "isHardProcess" )             passGenFlag = genLepton.isHardProcess();
-    // if( genFlag == "fromHardProcessFinalState" ) passGenFlag = genLepton.fromHardProcessFinalState();
-    // if( genFlag == "" )                          passGenFlag = true; // take any particles
+    bool passGenFlag = false;
+    if( genFlag == "isHardProcess" )             passGenFlag = genLepton.isHardProcess();
+    if( genFlag == "fromHardProcessFinalState" ) passGenFlag = genLepton.fromHardProcessFinalState();
+    if( genFlag == "" )                          passGenFlag = true; // take any particles
 
-    // if( !passGenFlag ) continue;
+    if( !passGenFlag ) continue;
 
     TLorentzVector vecP_lep;
     vecP_lep.SetPxPyPzE(genLepton.px(), genLepton.py(), genLepton.pz(), genLepton.energy());
     vec_vecP_lep.push_back(vecP_lep);
   }
+
+  return vec_vecP_lep;
+}
+
+double DYAcceptanceProducer::Get_DileptonMass_IsHardProcess(const edm::Event& iEvent) {
+
+  vector<TLorentzVector> vec_vecP_lep = Get_GenLeptons(iEvent, "isHardProcess");
 
   auto nLep = vec_vecP_lep.size();
   // nLep != 0: can happen if the sample is 3-flavor sample
