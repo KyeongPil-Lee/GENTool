@@ -260,6 +260,9 @@ class DYAcceptanceProducer : public edm::EDAnalyzer {
     vector<TLorentzVector> Find_TrueDYPairLepton(const edm::Event& iEvent, const vector<TLorentzVector>& vec_vecP_dLep);
     TLorentzVector Matched_SmallestDR(const TLorentzVector& vecP_HP, const vector<TLorentzVector>& vec_vecP_dLep);
 
+    vector<TLorentzVector> Get_LHELeptons(const edm::Event& iEvent);
+    double Get_DileptonMass_LHE(const edm::Event& iEvent);
+
     HistContainer* hist_; // -- full phase space
     HistContainer* hist_acc_; // -- fiducial phase space
 };
@@ -297,7 +300,26 @@ void DYAcceptanceProducer::analyze(const edm::Event& iEvent, const edm::EventSet
   // -- does not fill the event if it has m(ll) > 100.0 GeV
   // -- to combine it with the high mass samples
   if( doCut_at_m100_ ) {
-    double diLep_mass = Get_DileptonMass_IsHardProcess(iEvent);
+
+    // double mll_HP = Get_DileptonMass_IsHardProcess(iEvent);
+    // double mll_LHE = Get_DileptonMass_LHE(iEvent);
+    // vector<TLorentzVector> vec_vecP_HPLep = Get_GenLeptons(iEvent, "isHardProcess"); 
+    // vector<TLorentzVector> vec_vecP_LHELep = Get_LHELeptons(iEvent);
+    // printf("[isHardProcess]\n");
+    // for(const auto& vecP_lep : vec_vecP_HPLep) {
+    //   printf("  (pt, eta, phi) = (%.1lf, %.3lf, %.3lf)\n", vecP_lep.Pt(), vecP_lep.Eta(), vecP_lep.Phi());
+    // }
+    // printf("--> dilepton mass = %lf\n\n", mll_HP);
+
+    // printf("[LHE]\n");
+    // for(const auto& vecP_lep : vec_vecP_LHELep) {
+    //   printf("  (pt, eta, phi) = (%.1lf, %.3lf, %.3lf)\n", vecP_lep.Pt(), vecP_lep.Eta(), vecP_lep.Phi());
+    // }
+    // printf("--> dilepton mass = %lf\n", mll_LHE);
+    // printf("-----------------------\n");
+
+    // double diLep_mass = Get_DileptonMass_IsHardProcess(iEvent);
+    double diLep_mass = Get_DileptonMass_LHE(iEvent);
     if( diLep_mass > 100.0 ) return;
   }
 
@@ -530,6 +552,60 @@ void DYAcceptanceProducer::Save_weightInfo(std::map<TString, double>& map_systWR
     // cout << "  (id_weight, tag, ratio) = (" << id_weight << ", " << tag << ", " << ratio << ")" << endl; 
     map_systWRatio.insert( std::make_pair(tag, ratio) );
   }
+}
+
+double DYAcceptanceProducer::Get_DileptonMass_LHE(const edm::Event& iEvent) {
+  double mass = -1.0;
+
+  vector<TLorentzVector> vec_vecP_lep = Get_LHELeptons(iEvent);
+  int nLep = (int)vec_vecP_lep.size();
+
+  if( nLep != 2 ) {
+    cout << "[DYAcceptanceProducer::Get_DileptonMass_LHE] # LHE leptons are not 2!" << endl;
+    if( nLep < 2 ) {
+      throw std::invalid_argument( TString::Format("--> nLep = %d < 2 ... mass is set to -1.0 and return", nLep) );
+      return mass;
+    }
+    else
+      printf("--> nLep = %d > 2 ... select two leading leptons\n", nLep);
+  }
+
+  return (vec_vecP_lep[0]+vec_vecP_lep[1]).M();
+}
+
+vector<TLorentzVector> DYAcceptanceProducer::Get_LHELeptons(const edm::Event& iEvent) {
+  vector<TLorentzVector> vec_vecP_lep;
+  vec_vecP_lep.clear();
+
+  edm::Handle < LHEEventProduct > h_LHEEvent;
+  Bool_t isLHEAvailable = iEvent.getByToken(t_LHEEvent_, h_LHEEvent);
+  if( !isLHEAvailable ) {
+    cout << "LHE information is not found ... check sample or input tag" << endl;
+    return vec_vecP_lep; // -- return empty vector
+  }
+
+  const lhef::HEPEUP& lheEvent = h_LHEEvent->hepeup();
+
+  std::vector<lhef::HEPEUP::FiveVector> lheParticles = lheEvent.PUP;
+  for( size_t i_par = 0; i_par < lheParticles.size(); ++i_par ) {
+    Int_t id = lheEvent.IDUP[i_par];
+
+    if( std::abs(id) != thePDGID_ ) continue;
+
+    Double_t px     = lheParticles[i_par][0];
+    Double_t py     = lheParticles[i_par][1];
+    Double_t pz     = lheParticles[i_par][2];
+    Double_t energy = lheParticles[i_par][3];
+    // Double_t M = lheParticles[i_par][4];   
+    // Int_t status = lheEvent.ISTUP[i_par];
+
+    TLorentzVector vecP_lep;
+    vecP_lep.SetPxPyPzE(px, py, pz, energy);
+
+    vec_vecP_lep.push_back( vecP_lep );
+  }
+
+  return vec_vecP_lep;
 }
 
 void DYAcceptanceProducer::endRun(const Run& iRun, const EventSetup& iSetup) {
