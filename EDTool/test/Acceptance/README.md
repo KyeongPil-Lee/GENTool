@@ -34,9 +34,17 @@ cmsRun run_DYAcceptanceProducer.py cutAtM100=true InvOverflow=true >&run_DYAccep
 tail -f run_DYAcceptanceProducer.log
 ```
 
-## Submit CRAB
+## CRAB
+
+### Submission
+
+```bash
+python crabcfg_DY.py
+```
+
+### check the status
 
 ```
-python crabcfg_DY.py -d CRABDir_v3
+python CRAB_Status.py -d CRABDir_v3
 ```
 
