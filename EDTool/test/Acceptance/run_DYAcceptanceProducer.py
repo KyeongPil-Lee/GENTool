@@ -1,14 +1,22 @@
 import FWCore.ParameterSet.Config as cms
 
 # -- m50 sample, mm
-exampleFile = '/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToMuMu_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/270000/C10AF425-1891-5849-A619-CE2D859DC4FF.root'
-nEvent = -1
+# exampleFile = '/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToMuMu_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/270000/C10AF425-1891-5849-A619-CE2D859DC4FF.root'
+# nEvent = 1000
 
 # -- m10to50 sample, ee
 # exampleFile = '/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/2560000/015AB5F3-7566-9B4C-BC3F-00C5181B27FB.root'
 # nEvent = 10000
 # exampleFile = '/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/2550000/7E3FB340-1701-F048-BDA1-82ED411CC300.root'
 # nEvent = 10000
+
+# -- m100-200 sample, UL18, mm
+# exampleFile = '/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToMuMu_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/2560000/7BCE6EC9-BA6F-F540-A331-EEB3C4AF915F.root'
+# nEvent = 10
+
+# -- m50 sample, UL18, mm (more recent one, with tag "ZptWeighted")
+# exampleFile = '/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToMuMu_M-50_TuneCP5_ZptWeighted_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/50000/E8C8F28C-7A9D-3649-A3F7-33F98E47FFCD.root'
+nEvent = 1000
 
 from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing('analysis')
@@ -37,6 +45,12 @@ options.register('InvOverflow',
                   VarParsing.varType.string,         # string, int, or float
                   "Perform an investigation on the overflow events")
 
+options.register('exampleFile',
+                  "", # default value
+                  VarParsing.multiplicity.singleton, # singleton or list
+                  VarParsing.varType.string,         # string, int, or float
+                  "example file")
+
 # options.register('leptonType',
 #                   "none", # default value
 #                   VarParsing.multiplicity.singleton, # singleton or list
@@ -51,6 +65,7 @@ print("global tag:  %s" % options.globalTag)
 print("channel:     %s" % options.channel)
 print("cutAtM100: %s" % options.cutAtM100)
 print("InvOverflow: %s" % options.InvOverflow)
+print("exampleFile: %s" % options.exampleFile)
 print("#######################\n")
 
 process = cms.Process("GENTool")
@@ -59,9 +74,12 @@ process.load('FWCore.MessageLogger.MessageLogger_cfi')
 process.MessageLogger.cerr.FwkReport.reportEvery = 1000
 
 process.source = cms.Source("PoolSource",
-    fileNames = cms.untracked.vstring(exampleFile),
+    fileNames = cms.untracked.vstring(""),
     secondaryFileNames = cms.untracked.vstring(),
 )
+
+if options.exampleFile != "":
+    process.source.fileNames = cms.untracked.vstring(options.exampleFile)
 
 process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(nEvent))
 

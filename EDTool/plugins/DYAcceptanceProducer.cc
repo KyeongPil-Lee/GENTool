@@ -251,7 +251,14 @@ class DYAcceptanceProducer : public edm::EDAnalyzer {
     bool doCut_at_m100_ = false;
     bool doCheckOverflow_ = false;
 
-    void Save_weightInfo(std::map<TString, double>& map_systWRatio, const int& id_weight, const double& ratio);
+    void Save_WeightInfo(std::map<TString, double>& map_systWRatio, const int& id_weight, const double& ratio);
+    void Fill_WeightInfo_Range(std::map<TString, double>& map_systWRatio, 
+                               const int& id_weight, const double& ratio,
+                               TString baseTag, int id_start, int id_end, int id_cv = -1);
+    void Fill_WeightInfo_Single(std::map<TString, double>& map_systWRatio, 
+                                const int& id_weight, const double& ratio,
+                                TString baseTag, int theID);
+
     double Get_DileptonMass_IsHardProcess(const edm::Event& iEvent);
 
     void Print_OverflowEvent(const edm::Event& iEvent, const vector<TLorentzVector>& vec_vecP_dLep);
@@ -346,7 +353,7 @@ void DYAcceptanceProducer::analyze(const edm::Event& iEvent, const edm::EventSet
     TString id_weight = h_LHEEvent->weights()[i_weight].id;
 
     // -- Atoi: convert TString to int
-    Save_weightInfo(map_systWRatio, id_weight.Atoi(), ratio);
+    Save_WeightInfo(map_systWRatio, id_weight.Atoi(), ratio);
     // vec_systWeightRatio.push_back(ratio);
     // std::cout << i_weight << "th weight = " << weight 
     //           << "(ID = " << h_LHEEvent->weights()[i_weight].id <<"), ratio w.r.t. original: " << ratio << endl;
@@ -531,27 +538,112 @@ double DYAcceptanceProducer::Get_DileptonMass_IsHardProcess(const edm::Event& iE
   return (vec_vecP_lep[0]+vec_vecP_lep[1]).M();
 }
 
-void DYAcceptanceProducer::Save_weightInfo(std::map<TString, double>& map_systWRatio, const int& id_weight, const double& ratio) {
+void DYAcceptanceProducer::Save_WeightInfo(std::map<TString, double>& map_systWRatio, const int& id_weight, const double& ratio) {
   TString tag = "";
 
-  // -- id = 1001 ... 1009: scale variations
-  if( 1001 <= id_weight && id_weight <= 1009 ) {
-    int nVar = id_weight - 1000; // -- e.g. id_weight = 1001 --> nVar = 1
-    tag = TString::Format("scaleVar_%02d", nVar);
-  }
+  Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "scaleVar", 1001, 1009, 1000);
   // -- id = 2000:          central value
   // -- id = 2001 ... 2100: 100 hessian sets
   // -- id = 2101:          alphaS, up
   // -- id = 2102:          alphaS, down
-  else if( 2000 <= id_weight && id_weight <= 2102 ) {
-    int nVar = id_weight - 2000; // -- e.g. id_weight = 2001 --> nVar = 1
-    tag = TString::Format("PDFVar_%02d", nVar);    
+  Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "PDFVar",  2000, 2102);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "PDFVar_as_0117", 2108);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "PDFVar_as_0119", 2109);
+
+  // -- alternative PDFs
+  Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "NNPDF40", 2200, 2252);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "NNPDF40_as_0116", 2260);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "NNPDF40_as_0120", 2270);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "NNPDF40_pch", 2300);
+
+  Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "NNPDF30", 3000, 3100);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "NNPDF30_as_0117", 3103);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "NNPDF30_as_0119", 3104);
+
+  Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "PDF4LHC21", 4000, 4042);
+
+  Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "CT18", 5000, 5058);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "CT18_as_0116", 5070);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "CT18_as_0117", 5071);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "CT18_as_0119", 5072);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "CT18_as_0120", 5073);
+
+  Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "CT18Z", 5100, 5158);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "CT18_as_0116", 5170);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "CT18_as_0117", 5171);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "CT18_as_0119", 5172);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "CT18_as_0120", 5173);
+
+  Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "MSHT20", 6000, 6064);
+  Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "MSHT20_as", 6070, 6076);
+
+  Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "MMHT2014", 7000, 7050);
+  Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "MMHT2014_as", 7060, 7062);
+
+  Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "ABMP16", 8000, 8029);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "ABMP16als116_5_nlo", 8050);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "ABMP16als118_5_nlo", 8051);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "ABMP16als120_5_nlo", 8052);
+
+  Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "HERAPDF20", 13000, 13028);
+  Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "HERAPDF20Var", 13050, 13063);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "HERAPDF20_as_0116", 13100);
+  Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "HERAPDF20_as_0120", 13200);
+
+
+  // Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "NNPDF30", 3000, 3100);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "NNPDF30_as_0115", 3102);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "NNPDF30_as_0117", 3103);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "NNPDF30_as_0119", 3104);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "NNPDF30_as_0121", 3105);
+
+  // Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "CT18NNLO", 5100, 5158);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "CT18NNLO_as_0116", 5160);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "CT18NNLO_as_0120", 5170);
+
+  // Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "CT18ZNNLO", 5200, 5258);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "CT18ZNNLO_as_0116", 5260);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "CT18ZNNLO_as_0120", 5270);
+
+  // Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "MMHT2014", 7000, 7050);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "MMHT2014_as_0120", 7060);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "MMHT2014_as_0117", 7061);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "MMHT2014_as_0119", 7062);
+
+  // Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "ABMP16", 8000, 8029);
+
+  // Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "HERAPDF20", 13000, 13028);
+  // Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "HERAPDF20Var", 13050, 13063);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "HERAPDF20_as_0116", 13106);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "HERAPDF20_as_0117", 13107);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "HERAPDF20_as_0118", 13108);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "HERAPDF20_as_0119", 13109);
+  // Fill_WeightInfo_Single(map_systWRatio, id_weight, ratio, "HERAPDF20_as_0120", 13110);
+}
+
+void DYAcceptanceProducer::Fill_WeightInfo_Range(std::map<TString, double>& map_systWRatio, 
+                                                 const int& id_weight, const double& ratio,
+                                                 TString baseTag, int id_start, int id_end, int id_cv) {
+  bool isFound = false;
+  int nVar = 0;
+
+  if( id_start <= id_weight && id_weight <= id_end ) {
+    isFound = true;
+    if( id_cv < 0 ) id_cv = id_start; // -- if id_cv is not set --> cv = start
+    nVar = id_weight - id_cv; // -- i.e. id = id_start --> nVar = 000    
   }
 
-  if( tag != "" ) {
-    // cout << "  (id_weight, tag, ratio) = (" << id_weight << ", " << tag << ", " << ratio << ")" << endl; 
+  if( isFound ) {
+    TString tag = TString::Format("%s_%03d", baseTag.Data(), nVar);
     map_systWRatio.insert( std::make_pair(tag, ratio) );
   }
+}
+
+void DYAcceptanceProducer::Fill_WeightInfo_Single(std::map<TString, double>& map_systWRatio, 
+                                                 const int& id_weight, const double& ratio,
+                                                 TString baseTag, int theID) {
+  if( id_weight == theID )
+    map_systWRatio.insert( std::make_pair(baseTag, ratio) );
 }
 
 double DYAcceptanceProducer::Get_DileptonMass_LHE(const edm::Event& iEvent) {

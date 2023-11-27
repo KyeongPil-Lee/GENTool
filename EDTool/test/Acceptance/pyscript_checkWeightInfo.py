@@ -1,27 +1,3 @@
-from CRABClient.UserUtilities import config
-config = config()
-
-config.General.requestName = ''
-# config.General.workArea = 'CRABDir'
-
-config.JobType.pluginName = 'Analysis'
-config.JobType.psetName = 'run_DYAcceptanceProducer.py'
-
-config.Data.inputDataset = ''
-
-config.Data.inputDBS = 'global'
-# config.Data.splitting = 'Automatic'
-config.Data.splitting = 'FileBased'
-config.Data.unitsPerJob = 5
-config.Data.publication = False
-
-config.Site.storageSite = 'T2_BE_IIHE'
-# config.Site.storageSite = 'T3_KR_KNU' # -- as T2 BE server is shut down this week (13 Nov. 2023) ...
-
-version = 'v4'
-config.General.workArea = 'CRABDir_%s' % version
-config.Data.outLFNDirBase = '/store/user/kplee/DYAccPlot_%s' % version
-
 # -- dasgoclient --query "/DYJetsToMuMu_M-*powhegMiNNLO*/RunIISummer20UL16MiniAODAPVv2*/MINIAODSIM"
 list_sample_16pre_mm = [ 
 '/DYJetsToMuMu_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODAPVv2-106X_mcRun2_asymptotic_preVFP_v11-v2/MINIAODSIM',
@@ -105,7 +81,7 @@ list_sample_17_mm = [
 '/DYJetsToMuMu_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17MiniAODv2-106X_mc2017_realistic_v9-v2/MINIAODSIM',
 '/DYJetsToMuMu_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17MiniAODv2-106X_mc2017_realistic_v9-v2/MINIAODSIM',
 '/DYJetsToMuMu_M-50_TuneCP5_ZptWeighted_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17MiniAODv2-106X_mc2017_realistic_v9-v2/MINIAODSIM',
-'/DYJetsToMuMu_M-50_TuneCP5_ZptWeighted_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17MiniAODv2-106X_mc2017_realistic_v9_ext1-v2/MINIAODSIM',
+# '/DYJetsToMuMu_M-50_TuneCP5_ZptWeighted_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17MiniAODv2-106X_mc2017_realistic_v9_ext1-v2/MINIAODSIM',
 ]
 
 # -- dasgoclient --query "/DYJetsToEE_M-*powhegMiNNLO*/RunIISummer20UL17MiniAODv2*/MINIAODSIM"
@@ -123,7 +99,7 @@ list_sample_17_ee = [
 '/DYJetsToEE_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17MiniAODv2-106X_mc2017_realistic_v9-v2/MINIAODSIM',
 '/DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17MiniAODv2-106X_mc2017_realistic_v9-v2/MINIAODSIM',
 '/DYJetsToEE_M-50_TuneCP5_ZptWeighted_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17MiniAODv2-106X_mc2017_realistic_v9-v2/MINIAODSIM',
-'/DYJetsToEE_M-50_TuneCP5_ZptWeighted_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17MiniAODv2-106X_mc2017_realistic_v9_ext1-v2/MINIAODSIM',
+# '/DYJetsToEE_M-50_TuneCP5_ZptWeighted_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17MiniAODv2-106X_mc2017_realistic_v9_ext1-v2/MINIAODSIM',
 ]
 
 # -- dasgoclient --query "/DYJetsToMuMu_M-*powhegMiNNLO*/RunIISummer20UL18MiniAODv2*/MINIAODSIM"
@@ -183,92 +159,84 @@ dic_type_globalTag = {
     "18_ee" : "106X_upgrade2018_realistic_v16_L1v1",
 }
 
-# 'MultiCRAB' part
-if __name__ == '__main__':
-    
-    from multiprocessing import Process
-    from CRABAPI.RawCommand import crabCommand
-    from CRABClient.ClientExceptions import ClientException
-    from httplib import HTTPException
+import subprocess
 
-    def submit(config):
-        try:
-            crabCommand('submit', config = config)
-        except HTTPException as hte:
-            print "Failed submitting task: %s" % (hte.headers)
-        except ClientException as cle:
-            print "Failed submitting task: %s" % (cle)
+class WeightInfoProducer:
+    def __init__(self, sampleType):
+        self.sampleType = sampleType
+        self.exampleFile = ""
+        self.cmd_cmsRun = ""
+
+    def produce(self, massTag):
+        self.exampleFile = self.get_exampleFile(massTag)
+        self.cmd_cmsRun = self.makeCMD_cmsRun(massTag)
+        self.getLogAndSave(massTag)
+
+    def getLogAndSave(self, massTag):
+        list_lines = subprocess.check_output(self.cmd_cmsRun, shell=True)
+        list_weightInfo = []
+        isWeightInfo = False
+        for line in list_lines.decode().split("\n"):
+            if '<weightgroup combine="hessian"' in line: isWeightInfo = True
+
+            if isWeightInfo:
+                list_weightInfo.append(line)
+
+            if "</weightgroup>" in line: isWeightInfo = False
+
+        textFileName = "weightInfo_%s_%s.txt" % (self.sampleType, massTag)
+        f = open(textFileName, "w")
+        for line in list_weightInfo:
+            f.write(line+"\n")
+
+        f.close()
+
+    def makeCMD_cmsRun(self, massTag):
+        channel = ""
+        if "mm" in self.sampleType:
+            channel = "mm"
+        else:
+            channel = "ee"
+
+        globalTag = dic_type_globalTag[self.sampleType]
+
+        cmd = "cmsRun run_DYAcceptanceProducer.py exampleFile=%s globalTag=%s channel=%s" % (self.exampleFile, globalTag, channel)
+        print("cmsRun cmd = %s" % cmd)
+
+        return cmd
+
+    def get_exampleFile(self, massTag):
+        datasetName = self.find_dataset(massTag)
+        print("found datasetName = %s" % datasetName)
+
+        cmd_dasgoClient = 'dasgoclient --query="file dataset=%s"' % datasetName
+        print("cmd_dasgoClient = %s" % cmd_dasgoClient)
+
+        list_files = subprocess.check_output(cmd_dasgoClient, shell=True)
+
+        fileName = list_files.decode().split("\n")[0]
+        print("example file = %s" % fileName)
+
+        return fileName
+
+    def find_dataset(self, massTag):
+        theDatasetName = ""
+        for datasetName in dic_type_samples[self.sampleType]:
+            if massTag+"_" in datasetName:
+                theDatasetName = datasetName
+                break
+
+        if datasetName == "":
+            print("datasetName is not found for massTag = %s" % massTag)
+            sys.exit()
+
+        return theDatasetName
+
+if __name__ == '__main__':
 
     for sampleType in dic_type_samples.keys():
-        theGlobalTag = dic_type_globalTag[sampleType]
-        channel = ""
-        if "_ee" in sampleType: channel = "ee"
-        if "_mm" in sampleType: channel = "mm"
-
-        list_sample = dic_type_samples[sampleType]
-        for datasetName in list_sample:
-
-            # if datasetName == '/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18MiniAODv2-106X_upgrade2018_realistic_v16_L1v1-v2/MINIAODSIM':
-            #     # -- automatic splitting is failed due to too many lumi-sections in the dataset
-            #     config.Data.splitting = 'FileBased'
-            #     config.Data.unitsPerJob = 5
-            # else:
-            #     config.Data.splitting = 'Automatic'
-            #     config.Data.unitsPerJob = 180 # -- target time in mins: minimum 180 mins (3 hours)
-
-            massRange = datasetName
-            massRange = massRange.split("/")[1] # -- e.g. DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos
-            massRange = massRange.split("-")[1] # -- e.g. 800to1000_H2ErratumFix_TuneCP5_13TeV
-            massRange = massRange.split("_")[0] # -- e.g. 800to1000
-
-            cut_m100 = "false"
-            if massRange == "50": cut_m100 = "true"
-
-            if massRange == "10to50" and "_ext" in datasetName:
-                massRange = massRange + "_ext"
-
-            if massRange == "50" and "ZptWeighted" in datasetName:
-                massRange = massRange + "_ZptWeighted"
-                if "_ext" in datasetName:
-                    massRange = massRange + "_ext"
-
-
-            era = sampleType.split("_")[0]
-            theRequestName = "%s_m%s_%s" % (channel, massRange, era)
-
-            list_param = []
-            list_param.append( "globalTag=%s" % theGlobalTag )
-            list_param.append( "channel=%s" % channel )
-            list_param.append( "cutAtM100=%s" % cut_m100 )
-
-            # print("%s" % datasetName)
-            # print("--> requestName = %s" % theRequestName)
-            # print("--> global tag  = %s" % theGlobalTag)
-            # print("--> channel     = %s" % channel)
-            # print("--> cut_m100    = %s" % cut_m100)
-            # print("--> list_param: ", list_param)
-
-            # print("\n")
-
-            config.General.requestName = theRequestName
-            config.Data.inputDataset = datasetName
-            config.JobType.pyCfgParams = list_param
-            # crabCommand('submit', config = config)
-
-            # -- recommended way from CRAB3 twiki when you change pyCfgParams: https://twiki.cern.ch/twiki/bin/view/CMSPublic/CRAB3FAQ#Multiple_submission_fails_with_a
-            p = Process(target=submit, args=(config,))
-            p.start()
-            p.join()
-
-
-
-    # config.General.requestName = "DYEE_M50"
-    # config.Data.inputDataset = '/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODAPVv2-106X_mcRun2_asymptotic_preVFP_v11-v1/MINIAODSIM'
-    # config.JobType.pyCfgParams = ["globalTag=106X_mcRun2_asymptotic_preVFP_v11", "leptonType=electron"]
-
-    # p = Process(target=submit, args=(config,))
-    # p.start()
-    # p.join()
-
-
-
+        producer = WeightInfoProducer(sampleType)
+        # producer.produce("M-10to50")
+        # producer.produce("M-50")
+        # producer.produce("M-100to200")
+        producer.produce("M-50_TuneCP5_ZptWeighted")
