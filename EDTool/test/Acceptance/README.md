@@ -26,11 +26,20 @@ voms-proxy-init --voms cms
 ## Running interactively
 
 ```shell
-cmsRun run_DYAcceptanceProducer.py cutAtM100=true >&run_DYAcceptanceProducer.log&
+# -- m100-200 sample (UL18, mm)
+# -- add 'InvOverflow=true' for the investigation
+cmsRun run_DYAcceptanceProducer.py \
+channel=mm \
+globalTag=106X_upgrade2018_realistic_v16_L1v1 \
+exampleFile=/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToMuMu_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/2560000/7BCE6EC9-BA6F-F540-A331-EEB3C4AF915F.root >&run_DYAcceptanceProducer.log&
 tail -f run_DYAcceptanceProducer.log
 
-# -- investigation version
-cmsRun run_DYAcceptanceProducer.py cutAtM100=true InvOverflow=true >&run_DYAcceptanceProducer.log&
+# -- m50 sample (UL18, mm)
+cmsRun run_DYAcceptanceProducer.py \
+channel=mm \
+globalTag=106X_upgrade2018_realistic_v16_L1v1 \
+cutAtM100=true \
+exampleFile=/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToMuMu_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/270000/C10AF425-1891-5849-A619-CE2D859DC4FF.root >&run_DYAcceptanceProducer.log&
 tail -f run_DYAcceptanceProducer.log
 ```
 
