@@ -24,7 +24,7 @@ config.Data.outLFNDirBase = '/store/user/kplee/DYAccPlot_%s' % version
 
 # -- dasgoclient --query "/DYJetsToMuMu_M-*powhegMiNNLO*/RunIISummer20UL16MiniAODAPVv2*/MINIAODSIM"
 list_sample_16pre_mm = [ 
-'/DYJetsToMuMu_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODAPVv2-106X_mcRun2_asymptotic_preVFP_v11-v2/MINIAODSIM',
+'/DYJetsToMuMu_M-10to50_H2ErratumFixz_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODAPVv2-106X_mcRun2_asymptotic_preVFP_v11-v2/MINIAODSIM',
 '/DYJetsToMuMu_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODAPVv2-106X_mcRun2_asymptotic_preVFP_v11_ext1-v2/MINIAODSIM',
 '/DYJetsToMuMu_M-50_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODAPVv2-106X_mcRun2_asymptotic_preVFP_v11-v1/MINIAODSIM',
 '/DYJetsToMuMu_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODAPVv2-106X_mcRun2_asymptotic_preVFP_v11-v2/MINIAODSIM',
@@ -71,6 +71,7 @@ list_sample_16post_mm = [
 '/DYJetsToMuMu_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODv2-106X_mcRun2_asymptotic_v17-v2/MINIAODSIM',
 '/DYJetsToMuMu_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODv2-106X_mcRun2_asymptotic_v17-v2/MINIAODSIM',
 '/DYJetsToMuMu_M-50_TuneCP5_ZptWeighted_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODv2-106X_mcRun2_asymptotic_v17-v2/MINIAODSIM',
+'/DYJetsToMuMu_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODv2-106X_mcRun2_asymptotic_v17-v2/MINIAODSIM',
 ]
 
 # -- dasgoclient --query "/DYJetsToEE_M-*powhegMiNNLO*/RunIISummer20UL16MiniAODv2*/MINIAODSIM"
@@ -106,6 +107,7 @@ list_sample_17_mm = [
 '/DYJetsToMuMu_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17MiniAODv2-106X_mc2017_realistic_v9-v2/MINIAODSIM',
 '/DYJetsToMuMu_M-50_TuneCP5_ZptWeighted_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17MiniAODv2-106X_mc2017_realistic_v9-v2/MINIAODSIM',
 '/DYJetsToMuMu_M-50_TuneCP5_ZptWeighted_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17MiniAODv2-106X_mc2017_realistic_v9_ext1-v2/MINIAODSIM',
+'/DYJetsToMuMu_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL17MiniAODv2-106X_mc2017_realistic_v9-v3/MINIAODSIM',
 ]
 
 # -- dasgoclient --query "/DYJetsToEE_M-*powhegMiNNLO*/RunIISummer20UL17MiniAODv2*/MINIAODSIM"
@@ -141,6 +143,7 @@ list_sample_18_mm = [
 '/DYJetsToMuMu_M-700to800_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18MiniAODv2-106X_upgrade2018_realistic_v16_L1v1-v2/MINIAODSIM',
 '/DYJetsToMuMu_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18MiniAODv2-106X_upgrade2018_realistic_v16_L1v1-v2/MINIAODSIM',
 '/DYJetsToMuMu_M-50_TuneCP5_ZptWeighted_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18MiniAODv2-106X_upgrade2018_realistic_v16_L1v1-v2/MINIAODSIM',
+'/DYJetsToMuMu_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18MiniAODv2-106X_upgrade2018_realistic_v16_L1v1-v3/MINIAODSIM',
 ]
 
 # -- dasgoclient --query "/DYJetsToEE_M-*powhegMiNNLO*/RunIISummer20UL18MiniAODv2*/MINIAODSIM"
@@ -221,6 +224,10 @@ if __name__ == '__main__':
             massRange = massRange.split("-")[1] # -- e.g. 800to1000_H2ErratumFix_TuneCP5_13TeV
             massRange = massRange.split("_")[0] # -- e.g. 800to1000
 
+            
+            if massRange == "powhegMiNNLO": # -- e.g. DYJetsToMuMu_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos (no mass info.)
+              massRange = 50
+
             cut_m100 = "false"
             if massRange == "50": cut_m100 = "true"
 
@@ -232,6 +239,8 @@ if __name__ == '__main__':
                 if "_ext" in datasetName:
                     massRange = massRange + "_ext"
 
+            if massRange == "50" and "H2ErratumFix" in datasetName:
+                massRange = massRange + "_H2ErratumFix"
 
             era = sampleType.split("_")[0]
             theRequestName = "%s_m%s_%s" % (channel, massRange, era)
