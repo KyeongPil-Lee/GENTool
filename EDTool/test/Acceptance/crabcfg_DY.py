@@ -10,7 +10,7 @@ config.JobType.psetName = 'run_DYAcceptanceProducer.py'
 config.Data.inputDataset = ''
 
 config.Data.inputDBS = 'global'
-# config.Data.splitting = 'Automatic'
+# config.Data.splitting = 'Automatic' # -- a few problems in getting job status using API
 config.Data.splitting = 'FileBased'
 config.Data.unitsPerJob = 5
 config.Data.publication = False
@@ -18,7 +18,7 @@ config.Data.publication = False
 config.Site.storageSite = 'T2_BE_IIHE'
 # config.Site.storageSite = 'T3_KR_KNU' # -- as T2 BE server is shut down this week (13 Nov. 2023) ...
 
-version = 'v4'
+version = 'v4_1'
 config.General.workArea = 'CRABDir_%s' % version
 config.Data.outLFNDirBase = '/store/user/kplee/DYAccPlot_%s' % version
 
@@ -186,6 +186,31 @@ dic_type_globalTag = {
     "18_ee" : "106X_upgrade2018_realistic_v16_L1v1",
 }
 
+def Get_MassRange(datasetName):
+  massRange = datasetName
+  massRange = massRange.split("/")[1] # -- e.g. DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos
+  massRange = massRange.split("-")[1] # -- e.g. 800to1000_H2ErratumFix_TuneCP5_13TeV
+  massRange = massRange.split("_")[0] # -- e.g. 800to1000
+
+  cut_m100 = "false"
+  if massRange == "50": cut_m100 = "true"
+
+  if massRange == "10to50" and "_ext" in datasetName:
+      massRange = massRange + "_ext"
+
+  if massRange == "50" and "ZptWeighted" in datasetName:
+      massRange = massRange + "_ZptWeighted"
+      if "_ext" in datasetName:
+          massRange = massRange + "_ext"
+
+  # -- special case (no mass info in the dataset name)
+  # -- ignore the above logic
+  if datasetName.split("/")[1] == "DYJetsToMuMu_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos":
+    massRange = "50_H2ErratumFix"
+
+  return massRange
+
+
 # 'MultiCRAB' part
 if __name__ == '__main__':
     
@@ -211,39 +236,13 @@ if __name__ == '__main__':
         list_sample = dic_type_samples[sampleType]
         for datasetName in list_sample:
 
-            # if datasetName == '/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL18MiniAODv2-106X_upgrade2018_realistic_v16_L1v1-v2/MINIAODSIM':
-            #     # -- automatic splitting is failed due to too many lumi-sections in the dataset
-            #     config.Data.splitting = 'FileBased'
-            #     config.Data.unitsPerJob = 5
-            # else:
-            #     config.Data.splitting = 'Automatic'
-            #     config.Data.unitsPerJob = 180 # -- target time in mins: minimum 180 mins (3 hours)
-
-            massRange = datasetName
-            massRange = massRange.split("/")[1] # -- e.g. DYJetsToEE_M-800to1000_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos
-            massRange = massRange.split("-")[1] # -- e.g. 800to1000_H2ErratumFix_TuneCP5_13TeV
-            massRange = massRange.split("_")[0] # -- e.g. 800to1000
-
-            
-            if massRange == "powhegMiNNLO": # -- e.g. DYJetsToMuMu_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos (no mass info.)
-              massRange = 50
-
-            cut_m100 = "false"
-            if massRange == "50": cut_m100 = "true"
-
-            if massRange == "10to50" and "_ext" in datasetName:
-                massRange = massRange + "_ext"
-
-            if massRange == "50" and "ZptWeighted" in datasetName:
-                massRange = massRange + "_ZptWeighted"
-                if "_ext" in datasetName:
-                    massRange = massRange + "_ext"
-
-            if massRange == "50" and "H2ErratumFix" in datasetName:
-                massRange = massRange + "_H2ErratumFix"
+            massRange = Get_MassRange(datasetName)
 
             era = sampleType.split("_")[0]
             theRequestName = "%s_m%s_%s" % (channel, massRange, era)
+
+            cut_m100 = "false"
+            if "m50_" in theRequestName: cut_m100 = "true"
 
             list_param = []
             list_param.append( "globalTag=%s" % theGlobalTag )
@@ -256,7 +255,6 @@ if __name__ == '__main__':
             # print("--> channel     = %s" % channel)
             # print("--> cut_m100    = %s" % cut_m100)
             # print("--> list_param: ", list_param)
-
             # print("\n")
 
             config.General.requestName = theRequestName
