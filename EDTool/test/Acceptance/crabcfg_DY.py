@@ -18,7 +18,7 @@ config.Data.publication = False
 config.Site.storageSite = 'T2_BE_IIHE'
 # config.Site.storageSite = 'T3_KR_KNU' # -- as T2 BE server is shut down this week (13 Nov. 2023) ...
 
-version = 'v4_1'
+version = 'v5'
 config.General.workArea = 'CRABDir_%s' % version
 config.Data.outLFNDirBase = '/store/user/kplee/DYAccPlot_%s' % version
 
@@ -248,6 +248,9 @@ if __name__ == '__main__':
             list_param.append( "globalTag=%s" % theGlobalTag )
             list_param.append( "channel=%s" % channel )
             list_param.append( "cutAtM100=%s" % cut_m100 )
+            # -- adjust PDF weights (remove unphysically large weights)
+            list_param.append( "adjustPDFWeight=true" )
+            list_param.append( "requestName=%s" % theRequestName )
 
             # print("%s" % datasetName)
             # print("--> requestName = %s" % theRequestName)

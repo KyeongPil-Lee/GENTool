@@ -251,12 +251,19 @@ class DYAcceptanceProducer : public edm::EDAnalyzer {
     bool doCut_at_m100_ = false;
     bool doCheckOverflow_ = false;
 
-    void Save_WeightInfo(std::map<TString, double>& map_systWRatio, const int& id_weight, const double& ratio);
+    bool adjustPDFWeight_ = false;
+    double PDFWeightRangeSigma_ = 5.0; // -- allow the weight within 5sigma by default
+    vector<double> vec_PDFWeight_mean_;
+    vector<double> vec_PDFWeight_sigma_;
+    vector<double> vec_PDFWeight_lowerLimit_;
+    vector<double> vec_PDFWeight_upperLimit_;
+
+    void Save_WeightInfo(std::map<TString, double>& map_systWRatio, const int& id_weight, double& ratio);
     void Fill_WeightInfo_Range(std::map<TString, double>& map_systWRatio, 
-                               const int& id_weight, const double& ratio,
+                               const int& id_weight, double& ratio,
                                TString baseTag, int id_start, int id_end, int id_cv = -1);
     void Fill_WeightInfo_Single(std::map<TString, double>& map_systWRatio, 
-                                const int& id_weight, const double& ratio,
+                                const int& id_weight, double& ratio,
                                 TString baseTag, int theID);
 
     double Get_DileptonMass_IsHardProcess(const edm::Event& iEvent);
@@ -269,6 +276,9 @@ class DYAcceptanceProducer : public edm::EDAnalyzer {
 
     vector<TLorentzVector> Get_LHELeptons(const edm::Event& iEvent);
     double Get_DileptonMass_LHE(const edm::Event& iEvent);
+
+    void InitVector_WeightRange();
+    void Adjust_PDFWeight(int iSet, double& ratio);
 
     HistContainer* hist_; // -- full phase space
     HistContainer* hist_acc_; // -- fiducial phase space
@@ -300,6 +310,20 @@ t_dressedLepton_( consumes< reco::GenJetCollection >        (iConfig.getUntracke
 
   doCut_at_m100_ = iConfig.getUntrackedParameter<bool>("Cut_At_M100");
   doCheckOverflow_ = iConfig.getUntrackedParameter<bool>("Investigate_Overflow");
+  adjustPDFWeight_ = iConfig.getUntrackedParameter<bool>("AdjustPDFWeight");
+  PDFWeightRangeSigma_ = iConfig.getUntrackedParameter<double>("PDFWeightRangeSigma");
+
+  if( adjustPDFWeight_ ) {
+    vec_PDFWeight_mean_ = iConfig.getUntrackedParameter< vector<double> >("PDFWeight_mean");
+    vec_PDFWeight_sigma_ = iConfig.getUntrackedParameter< vector<double> >("PDFWeight_sigma");
+    InitVector_WeightRange();
+  }
+  else {
+    vec_PDFWeight_mean_.clear();
+    vec_PDFWeight_sigma_.clear();
+    vec_PDFWeight_lowerLimit_.clear();
+    vec_PDFWeight_upperLimit_.clear();
+  }
 }
 
 void DYAcceptanceProducer::analyze(const edm::Event& iEvent, const edm::EventSetup& iEventSetup) {
@@ -404,6 +428,23 @@ void DYAcceptanceProducer::analyze(const edm::Event& iEvent, const edm::EventSet
   // -- investigation: overflow event in m10-50
   if( doCheckOverflow_ )
     Print_OverflowEvent(iEvent, vec_vecP_lep);
+}
+
+void DYAcceptanceProducer::InitVector_WeightRange() {
+  int nValue = (int)vec_PDFWeight_mean_.size();
+  printf("[InitVector_WeightRange] # sets = %d\n", nValue);
+
+  for(int i=0; i<nValue; ++i) {
+    double mean  = vec_PDFWeight_mean_[i];
+    double sigma = vec_PDFWeight_sigma_[i];
+
+    double lowerLimit = mean - PDFWeightRangeSigma_ * sigma;
+    double upperLimit = mean + PDFWeightRangeSigma_ * sigma;
+    vec_PDFWeight_lowerLimit_.push_back( lowerLimit );
+    vec_PDFWeight_upperLimit_.push_back( upperLimit );
+
+    printf("--> [%d set] (mean, sigma, lowerLimit, upperLimit) = (%.4lf, %.4lf, %.4lf, %.4lf)\n", i+1, mean, sigma, lowerLimit, upperLimit);
+  }
 }
 
 // -- matching with "isHardProcess" leptons using eta and phi --> use the matched dressed leptons for the mass
@@ -538,7 +579,7 @@ double DYAcceptanceProducer::Get_DileptonMass_IsHardProcess(const edm::Event& iE
   return (vec_vecP_lep[0]+vec_vecP_lep[1]).M();
 }
 
-void DYAcceptanceProducer::Save_WeightInfo(std::map<TString, double>& map_systWRatio, const int& id_weight, const double& ratio) {
+void DYAcceptanceProducer::Save_WeightInfo(std::map<TString, double>& map_systWRatio, const int& id_weight, double& ratio) {
   TString tag = "";
 
   Fill_WeightInfo_Range(map_systWRatio, id_weight, ratio, "scaleVar", 1001, 1009, 1000);
@@ -622,7 +663,7 @@ void DYAcceptanceProducer::Save_WeightInfo(std::map<TString, double>& map_systWR
 }
 
 void DYAcceptanceProducer::Fill_WeightInfo_Range(std::map<TString, double>& map_systWRatio, 
-                                                 const int& id_weight, const double& ratio,
+                                                 const int& id_weight, double& ratio,
                                                  TString baseTag, int id_start, int id_end, int id_cv) {
   bool isFound = false;
   int nVar = 0;
@@ -635,12 +676,40 @@ void DYAcceptanceProducer::Fill_WeightInfo_Range(std::map<TString, double>& map_
 
   if( isFound ) {
     TString tag = TString::Format("%s_%03d", baseTag.Data(), nVar);
+    if( baseTag == "PDFVar" && adjustPDFWeight_ )
+      Adjust_PDFWeight(nVar, ratio);
+
     map_systWRatio.insert( std::make_pair(tag, ratio) );
   }
 }
 
+void DYAcceptanceProducer::Adjust_PDFWeight(int iSet, double& ratio) {
+  if( iSet == 0 ) return; // -- default set
+  if( iSet == 101 ) return; // -- alphaS: no info
+  if( iSet == 102 ) return; // -- alphaS: no info
+
+  int index = iSet - 1; // -- e.g. 001 set --> 0-th element in vec_mean & vec_sigma
+
+  double lowerLimit = vec_PDFWeight_lowerLimit_[index];
+  double upperLimit = vec_PDFWeight_upperLimit_[index];
+
+  bool isNormal = (lowerLimit < ratio && ratio < upperLimit);
+
+  if( !isNormal ) {
+    printf("[%d set] ratio = %lf", iSet, ratio);
+    printf(" --> outside of 5-sigma range (%.4lf, %.4lf) (mean, sigma) = (%.4lf, %.4lf)\n", 
+           lowerLimit, upperLimit, vec_PDFWeight_mean_[index], vec_PDFWeight_sigma_[index]);
+  }
+
+
+  if( !isNormal ) {
+    ratio = vec_PDFWeight_mean_[index]; // -- change the value with the mean value
+    printf("--> fixed value = %.4lf\n", ratio);
+  }
+}
+
 void DYAcceptanceProducer::Fill_WeightInfo_Single(std::map<TString, double>& map_systWRatio, 
-                                                 const int& id_weight, const double& ratio,
+                                                 const int& id_weight, double& ratio,
                                                  TString baseTag, int theID) {
   if( id_weight == theID )
     map_systWRatio.insert( std::make_pair(baseTag, ratio) );

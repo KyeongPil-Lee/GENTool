@@ -2,7 +2,7 @@ import FWCore.ParameterSet.Config as cms
 
 # -- m50 sample, mm
 # exampleFile = '/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToMuMu_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/270000/C10AF425-1891-5849-A619-CE2D859DC4FF.root'
-# nEvent = 1000
+# nEvent = 10000
 
 # -- m10to50 sample, ee
 # exampleFile = '/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToEE_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/2560000/015AB5F3-7566-9B4C-BC3F-00C5181B27FB.root'
@@ -16,7 +16,9 @@ import FWCore.ParameterSet.Config as cms
 
 # -- m50 sample, UL18, mm (more recent one, with tag "ZptWeighted")
 # exampleFile = '/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToMuMu_M-50_TuneCP5_ZptWeighted_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/50000/E8C8F28C-7A9D-3649-A3F7-33F98E47FFCD.root'
-nEvent = 1000
+# nEvent = 1000
+
+nEvent = 10000
 
 from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing('analysis')
@@ -45,6 +47,18 @@ options.register('InvOverflow',
                   VarParsing.varType.string,         # string, int, or float
                   "Perform an investigation on the overflow events")
 
+options.register('adjustPDFWeight',
+                  "false", # default value
+                  VarParsing.multiplicity.singleton, # singleton or list
+                  VarParsing.varType.string,         # string, int, or float
+                  "Adjust unphysically large PDF weights? (outside of 5sigma)")
+
+options.register('requestName',
+                  "mm_m50_18", # default value
+                  VarParsing.multiplicity.singleton, # singleton or list
+                  VarParsing.varType.string,         # string, int, or float
+                  "crab request name (to find the sample's mean and sigma: needed only when adjustPDFWeight is true)")
+
 options.register('exampleFile',
                   "", # default value
                   VarParsing.multiplicity.singleton, # singleton or list
@@ -61,11 +75,13 @@ options.parseArguments()
 
 print("\n#######################")
 print(" ---Input arguments ---")
-print("global tag:  %s" % options.globalTag)
-print("channel:     %s" % options.channel)
-print("cutAtM100: %s" % options.cutAtM100)
-print("InvOverflow: %s" % options.InvOverflow)
-print("exampleFile: %s" % options.exampleFile)
+print("global tag:      %s" % options.globalTag)
+print("channel:         %s" % options.channel)
+print("cutAtM100:       %s" % options.cutAtM100)
+print("AdjustPDFWeight: %s" % options.adjustPDFWeight)
+print("requestName:     %s" % options.requestName)
+print("InvOverflow:     %s" % options.InvOverflow)
+print("exampleFile:     %s" % options.exampleFile)
 print("#######################\n")
 
 process = cms.Process("GENTool")
@@ -142,6 +158,11 @@ if options.cutAtM100 == "true" or options.cutAtM100 == "True":
 InvOverflow_bool = False
 if options.InvOverflow == "true" or options.InvOverflow == "True": 
     InvOverflow_bool = True
+
+adjustPDFWeight_bool = False
+if options.adjustPDFWeight == "true" or options.adjustPDFWeight == "True": 
+    adjustPDFWeight_bool = True
+
 process.DYAcceptanceProducer = cms.EDAnalyzer('DYAcceptanceProducer',
     LHERunInfoProduct = cms.untracked.InputTag("externalLHEProducer"),
     LHEEvent     = cms.untracked.InputTag("externalLHEProducer"),
@@ -155,7 +176,30 @@ process.DYAcceptanceProducer = cms.EDAnalyzer('DYAcceptanceProducer',
     EtaCut_sub  = cms.untracked.double(2.4),
     Cut_At_M100 = cms.untracked.bool(cutAtM100_bool), # -- for m-50 sample (drop events above m=100 GeV to combine with high mass samples)
     Investigate_Overflow = cms.untracked.bool(InvOverflow_bool),
+    # -- if PDFWeight is outside of 5sigma from its mean: change it to be the mean value
+    AdjustPDFWeight = cms.untracked.bool(adjustPDFWeight_bool),
+    PDFWeightRangeSigma = cms.untracked.double(5.0), # -- allow weights within +-5sigma from its mean
+    PDFWeight_mean = cms.untracked.vdouble(), # -- filled later
+    PDFWeight_sigma = cms.untracked.vdouble(), # -- filled later
 )
+if adjustPDFWeight_bool:
+    sampleTag = options.requestName
+    # -- exceptions
+    if "m50_" in options.requestName: # -- e.g. mm_m50_ZptWeighted_ext_17
+        era = options.requestName.split("_")[-1]
+        sampleTag = "%s_m50to100_%s" % (options.channel, era) # -- use the distribution of mm_m50to100_17
+
+    if "m10to50_ext_" in options.requestName:
+        era = options.requestName.split("_")[-1]
+        sampleTag = "%s_m10to50_%s" % (options.channel, era) # -- remove "ext" tag
+
+    from GENTool.EDTool.WeightInfo_DYSample import GetWeightInfo
+    dic_weightInfo = GetWeightInfo()
+    process.DYAcceptanceProducer.PDFWeight_mean  = dic_weightInfo[sampleTag+"_mean"]
+    process.DYAcceptanceProducer.PDFWeight_sigma = dic_weightInfo[sampleTag+"_sigma"]
+    # print "process.DYAcceptanceProducer.PDFWeight_mean", process.DYAcceptanceProducer.PDFWeight_mean
+    # print "process.DYAcceptanceProducer.PDFWeight_sigma", process.DYAcceptanceProducer.PDFWeight_sigma
+
 
 process.mypath = cms.EndPath(
     process.mergedGenParticles +

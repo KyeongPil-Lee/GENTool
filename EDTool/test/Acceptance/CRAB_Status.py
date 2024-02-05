@@ -152,10 +152,10 @@ for crabDir in list_CRABDir:
 
     statusInfo = CRABStatusInfo(crabDirPath, crabInfo)
 
-    if statusInfo.NeedResubmit():
-        list_resubmit.append( statusInfo )
-    elif statusInfo.IsCompleted():
+    if statusInfo.IsCompleted():
         list_completed.append( statusInfo )
+    elif statusInfo.NeedResubmit():
+        list_resubmit.append( statusInfo )
     elif statusInfo.IsUnknown():
         list_unknown.append( statusInfo )
     else:
