@@ -18,7 +18,7 @@ config.Data.publication = False
 config.Site.storageSite = 'T2_BE_IIHE'
 # config.Site.storageSite = 'T3_KR_KNU' # -- as T2 BE server is shut down this week (13 Nov. 2023) ...
 
-version = 'v5'
+version = 'v5_1'
 config.General.workArea = 'CRABDir_%s' % version
 config.Data.outLFNDirBase = '/store/user/kplee/DYAccPlot_%s' % version
 
@@ -217,15 +217,15 @@ if __name__ == '__main__':
     from multiprocessing import Process
     from CRABAPI.RawCommand import crabCommand
     from CRABClient.ClientExceptions import ClientException
-    from httplib import HTTPException
+    # from httplib import HTTPException
 
     def submit(config):
         try:
             crabCommand('submit', config = config)
-        except HTTPException as hte:
-            print "Failed submitting task: %s" % (hte.headers)
+        # except HTTPException as hte:
+        #     print("Failed submitting task: %s" % (hte.headers))
         except ClientException as cle:
-            print "Failed submitting task: %s" % (cle)
+            print("Failed submitting task: %s" % (cle))
 
     for sampleType in dic_type_samples.keys():
         theGlobalTag = dic_type_globalTag[sampleType]
@@ -269,6 +269,9 @@ if __name__ == '__main__':
             p = Process(target=submit, args=(config,))
             p.start()
             p.join()
+
+            break
+          break
 
 
 

@@ -695,17 +695,20 @@ void DYAcceptanceProducer::Adjust_PDFWeight(int iSet, double& ratio) {
 
   bool isNormal = (lowerLimit < ratio && ratio < upperLimit);
 
-  if( !isNormal ) {
-    printf("[%d set] ratio = %lf", iSet, ratio);
-    printf(" --> outside of 5-sigma range (%.4lf, %.4lf) (mean, sigma) = (%.4lf, %.4lf)\n", 
-           lowerLimit, upperLimit, vec_PDFWeight_mean_[index], vec_PDFWeight_sigma_[index]);
-  }
+  // if( !isNormal ) {
+  //   printf("[%d set] ratio = %lf", iSet, ratio);
+  //   printf(" --> outside of 5-sigma range (%.4lf, %.4lf) (mean, sigma) = (%.4lf, %.4lf)\n", 
+  //          lowerLimit, upperLimit, vec_PDFWeight_mean_[index], vec_PDFWeight_sigma_[index]);
+  // }
 
 
-  if( !isNormal ) {
+  // if( !isNormal ) {
+  //   ratio = vec_PDFWeight_mean_[index]; // -- change the value with the mean value
+  //   printf("--> fixed value = %.4lf\n", ratio);
+  // }
+
+  if( !isNormal )
     ratio = vec_PDFWeight_mean_[index]; // -- change the value with the mean value
-    printf("--> fixed value = %.4lf\n", ratio);
-  }
 }
 
 void DYAcceptanceProducer::Fill_WeightInfo_Single(std::map<TString, double>& map_systWRatio, 
