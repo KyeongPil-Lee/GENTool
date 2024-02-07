@@ -4,21 +4,35 @@ Calculate the acceptance of the DY acceptance as a function of dilepton mass, in
 
 ## Setup (first time)
 
+* CMSSW_10_6_27: not available under `el9_X` architecture -> make an error in CRAB if the job is submitted
+* Need to use Singularity, especially for CentOS7 environment: `cmssw-el7` command
+  * https://cms-sw.github.io/singularity.html
+  * Submit CRAB under Singularity
+  * Related post: https://cms-talk.web.cern.ch/t/crab-jobs-failing-with-error-code-8001-cmsrun-on-lxplus-works-fine/33698/4
+
 ```shell
 # -- lxplus
+export SCRAM_ARCH=slc7_amd64_gcc700
 cd /afs/cern.ch/user/k/kplee/work/private/Analysis/DYAcceptance
+
+cmssw-el7 # -- use CentOS7 env. (for this CMSSW & ARCH)
+
 cmsrel CMSSW_10_6_27 # -- where the nanoAODv9 was run
 cd CMSSW_10_6_27/src
 git clone git@github.com:KyeongPil-Lee/GENTool.git -b accCorr_DYFullRun2
 scram b
+
 ```
 
 ## Setup working area
 
 ```shell
 # -- lxplus
-# -- open two termiinals: one for scram, one for running
+# -- open two terminals: one for scram, one for running
 cd /afs/cern.ch/user/k/kplee/work/private/Analysis/DYAcceptance/CMSSW_10_6_27/src/GENTool/EDTool/test/Acceptance
+
+cmssw-el7 # -- use CentOS7 env. (for this CMSSW & ARCH)
+
 cmsenv
 voms-proxy-init --voms cms
 ```

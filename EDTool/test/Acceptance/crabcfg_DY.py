@@ -18,13 +18,14 @@ config.Data.publication = False
 config.Site.storageSite = 'T2_BE_IIHE'
 # config.Site.storageSite = 'T3_KR_KNU' # -- as T2 BE server is shut down this week (13 Nov. 2023) ...
 
-version = 'v5_1'
+# version = 'v5_1'
+version = 'v5_2'
 config.General.workArea = 'CRABDir_%s' % version
 config.Data.outLFNDirBase = '/store/user/kplee/DYAccPlot_%s' % version
 
 # -- dasgoclient --query "/DYJetsToMuMu_M-*powhegMiNNLO*/RunIISummer20UL16MiniAODAPVv2*/MINIAODSIM"
 list_sample_16pre_mm = [ 
-'/DYJetsToMuMu_M-10to50_H2ErratumFixz_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODAPVv2-106X_mcRun2_asymptotic_preVFP_v11-v2/MINIAODSIM',
+'/DYJetsToMuMu_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODAPVv2-106X_mcRun2_asymptotic_preVFP_v11-v2/MINIAODSIM',
 '/DYJetsToMuMu_M-10to50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODAPVv2-106X_mcRun2_asymptotic_preVFP_v11_ext1-v2/MINIAODSIM',
 '/DYJetsToMuMu_M-50_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODAPVv2-106X_mcRun2_asymptotic_preVFP_v11-v1/MINIAODSIM',
 '/DYJetsToMuMu_M-100to200_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAODAPVv2-106X_mcRun2_asymptotic_preVFP_v11-v2/MINIAODSIM',
@@ -270,8 +271,8 @@ if __name__ == '__main__':
             p.start()
             p.join()
 
-            break
-          break
+        #     break
+        # break
 
 
 
