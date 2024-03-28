@@ -18,7 +18,7 @@ import FWCore.ParameterSet.Config as cms
 # exampleFile = '/store/mc/RunIISummer20UL18MiniAODv2/DYJetsToMuMu_M-50_TuneCP5_ZptWeighted_13TeV-powhegMiNNLO-pythia8-photos/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/50000/E8C8F28C-7A9D-3649-A3F7-33F98E47FFCD.root'
 # nEvent = 1000
 
-nEvent = 10000
+nEvent = 3000
 
 from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing('analysis')

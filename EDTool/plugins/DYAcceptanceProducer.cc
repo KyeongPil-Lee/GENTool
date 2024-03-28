@@ -270,6 +270,7 @@ class DYAcceptanceProducer : public edm::EDAnalyzer {
 
     void Print_OverflowEvent(const edm::Event& iEvent, const vector<TLorentzVector>& vec_vecP_dLep);
     vector<TLorentzVector> Get_GenLeptons(const edm::Event& iEvent, const TString& genFlag);
+    vector<TLorentzVector> Get_GenLeptons_preFSR(const edm::Event& iEvent);
 
     vector<TLorentzVector> Find_TrueDYPairLepton(const edm::Event& iEvent, const vector<TLorentzVector>& vec_vecP_dLep);
     TLorentzVector Matched_SmallestDR(const TLorentzVector& vecP_HP, const vector<TLorentzVector>& vec_vecP_dLep);
@@ -282,6 +283,10 @@ class DYAcceptanceProducer : public edm::EDAnalyzer {
 
     HistContainer* hist_; // -- full phase space
     HistContainer* hist_acc_; // -- fiducial phase space
+
+    // -- pre-FSR distribution
+    HistContainer* hist_preFSR_; // -- full phase space
+    HistContainer* hist_preFSR_acc_; // -- fiducial phase space
 };
 
 DYAcceptanceProducer::DYAcceptanceProducer(const edm::ParameterSet& iConfig):
@@ -302,11 +307,15 @@ t_dressedLepton_( consumes< reco::GenJetCollection >        (iConfig.getUntracke
   hist_    = new HistContainer(fs, "");
   hist_acc_ = new HistContainer(fs, "acc");
 
+  hist_preFSR_     = new HistContainer(fs, "preFSR");
+  hist_preFSR_acc_ = new HistContainer(fs, "preFSR_acc");
+
   double ptCut_lead  = iConfig.getUntrackedParameter<double>("PtCut_lead");
   double ptCut_sub   = iConfig.getUntrackedParameter<double>("PtCut_sub");
   double etaCut_lead = iConfig.getUntrackedParameter<double>("EtaCut_lead");
   double etaCut_sub  = iConfig.getUntrackedParameter<double>("EtaCut_sub");
   hist_acc_->Set_Acc(ptCut_lead, etaCut_lead, ptCut_sub, etaCut_sub);
+  hist_preFSR_acc_->Set_Acc(ptCut_lead, etaCut_lead, ptCut_sub, etaCut_sub);
 
   doCut_at_m100_ = iConfig.getUntrackedParameter<bool>("Cut_At_M100");
   doCheckOverflow_ = iConfig.getUntrackedParameter<bool>("Investigate_Overflow");
@@ -424,6 +433,13 @@ void DYAcceptanceProducer::analyze(const edm::Event& iEvent, const edm::EventSet
   // -- fill the histograms
   hist_->Fill(vec_vecP_lep[0], vec_vecP_lep[1], weight, map_systWRatio);
   hist_acc_->Fill(vec_vecP_lep[0], vec_vecP_lep[1], weight, map_systWRatio);
+
+  // -- pre-FSR leptons (for the correction to N3LO x-sec) -- //
+  vector<TLorentzVector> vec_vecP_preFSR = Get_GenLeptons_preFSR(iEvent);
+  if( vec_vecP_preFSR.size() == 2 ) {
+    hist_preFSR_->Fill(vec_vecP_preFSR[0], vec_vecP_preFSR[1], weight, map_systWRatio);
+    hist_preFSR_acc_->Fill(vec_vecP_preFSR[0], vec_vecP_preFSR[1], weight, map_systWRatio);
+  }
 
   // -- investigation: overflow event in m10-50
   if( doCheckOverflow_ )
@@ -548,6 +564,76 @@ vector<TLorentzVector> DYAcceptanceProducer::Get_GenLeptons(const edm::Event& iE
   }
 
   return vec_vecP_lep;
+}
+
+// -- CAVEAT: it only works for Powheg-MiNNLO DY sample
+// -- would not work for the other MC samples
+vector<TLorentzVector> DYAcceptanceProducer::Get_GenLeptons_preFSR(const edm::Event& iEvent) {
+  edm::Handle < std::vector<reco::GenParticle> > h_genParticles;
+  iEvent.getByToken(t_genParticles_, h_genParticles);
+
+  vector<TLorentzVector> vec_vecP_lep;
+  for(size_t i_gen=0; i_gen<(*h_genParticles).size(); ++i_gen) {
+    reco::GenParticle genLepton = (*h_genParticles)[i_gen];
+
+    if( abs(genLepton.pdgId()) != thePDGID_ ) continue;
+    if( genLepton.status() != 746 ) continue;
+
+    // bool passGenFlag = false;
+    // if( genFlag == "isHardProcess" )             passGenFlag = genLepton.isHardProcess();
+    // if( genFlag == "fromHardProcessFinalState" ) passGenFlag = genLepton.fromHardProcessFinalState();
+    // if( genFlag == "" )                          passGenFlag = true; // take any particles
+
+    // if( !passGenFlag ) continue;
+
+    TLorentzVector vecP_lep;
+    vecP_lep.SetPxPyPzE(genLepton.px(), genLepton.py(), genLepton.pz(), genLepton.energy());
+    vec_vecP_lep.push_back(vecP_lep);
+  }
+
+  // -- find two pre-FSR leptons: return
+  if( vec_vecP_lep.size() == 2 )
+    return vec_vecP_lep;
+
+  // -- if not, FSR didn't happen - then, return just final state leptons
+  vector<TLorentzVector> vec_vecP_lep_plus;
+  vector<TLorentzVector> vec_vecP_lep_minus;
+  for(size_t i_gen=0; i_gen<(*h_genParticles).size(); ++i_gen) {
+    reco::GenParticle genLepton = (*h_genParticles)[i_gen];
+
+    if( abs(genLepton.pdgId()) != thePDGID_ ) continue;
+    // -- gen-flags
+    if( !genLepton.statusFlags().isPrompt() ) continue;
+    if( !genLepton.statusFlags().fromHardProcess() ) continue;
+    if( !genLepton.statusFlags().isFirstCopy() ) continue;
+    if( !genLepton.statusFlags().isLastCopy() ) continue;
+
+    TLorentzVector vecP_lep;
+    vecP_lep.SetPxPyPzE(genLepton.px(), genLepton.py(), genLepton.pz(), genLepton.energy());
+
+    if( genLepton.charge() > 0 ) vec_vecP_lep_plus.push_back( vecP_lep );
+    else                         vec_vecP_lep_minus.push_back( vecP_lep );
+  }
+
+  // -- lep+ or lep- was not found: problematic, return empty vector
+  if( vec_vecP_lep_plus.size() == 0 || vec_vecP_lep_minus.size() == 0 ) {
+    cout << "No final state leptons was found" << endl;
+    cout << "--> vec_vecP_lep_plus.size() =  " << vec_vecP_lep_plus.size() << endl;
+    cout << "--> vec_vecP_lep_minus.size() = " << vec_vecP_lep_minus.size() << endl;
+    return {};
+  }
+
+  // -- from here, there are at least 1 lepton in each vector
+  // -- in a rare case: there are more than 2 leptons passing above conditions
+  // -- take the highest-pT leptons in each lep+ and lep- category ...
+  std::sort(vec_vecP_lep_plus.begin(), vec_vecP_lep_plus.end(),
+            [](const TLorentzVector &lhs, const TLorentzVector &rhs) { return lhs.Pt() > rhs.Pt(); }
+  );
+  std::sort(vec_vecP_lep_minus.begin(), vec_vecP_lep_minus.end(),
+            [](const TLorentzVector &lhs, const TLorentzVector &rhs) { return lhs.Pt() > rhs.Pt(); }
+  );
+
+  return { vec_vecP_lep_plus[0], vec_vecP_lep_minus[0] };
 }
 
 double DYAcceptanceProducer::Get_DileptonMass_IsHardProcess(const edm::Event& iEvent) {
